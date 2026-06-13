@@ -51,10 +51,10 @@ app.use((_req, res) =>
 // ── Global error handler ──────────────────────────────────────────
 app.use((err: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
   console.error('Unhandled error:', err.message);
-  res.status(500).json({ success: false, message: 'Internal server error' });
+  res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
-// ── Start ─────────────────────────────────────────────────────────
+// ── Start ──────────────────────────────────── ─────────────────────
 const startServer = async () => {
   await connectDB();
   app.listen(PORT, () => console.log(`✅ Server running on http://localhost:${PORT}`));

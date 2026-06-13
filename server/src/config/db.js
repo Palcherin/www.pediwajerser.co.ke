@@ -1,35 +1,55 @@
-import 'dotenv/config';
 import { PrismaClient } from '@prisma/client';
-import { PrismaPg } from '@prisma/adapter-pg';
-import pg from 'pg';
+import { PrismaPg }     from '@prisma/adapter-pg';
+import pg               from 'pg';
 
 const pool = new pg.Pool({
-  connectionString: process.env.DATABASE_URL,
+  connectionString:        process.env.DATABASE_URL,
+  max:                     3,
+  idleTimeoutMillis:       30000,
+  connectionTimeoutMillis: 30000, // ← increased from 10s to 30s for Neon cold starts
   ssl: { rejectUnauthorized: false },
-  max: 10,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 15000,
+});
+
+pool.on('error', (err) => {
+  console.error('Pool error:', err.message);
 });
 
 const adapter = new PrismaPg(pool);
 
-const prisma = new PrismaClient({
+export const prisma = new PrismaClient({
   adapter,
-  log: process.env.NODE_ENV === 'development' ? ['query', 'error'] : ['error'],
+  log: ['error'],
 });
 
-const connectDB = async () => {
+// ── Retry wrapper — use this for all DB calls that might hit a cold start ──
+export const withRetry = async (fn, retries = 3, delay = 2000) => {
+  for (let i = 0; i < retries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      const isTimeout = err.message?.includes('timeout') ||
+                        err.message?.includes('Connection terminated');
+      if (isTimeout && i < retries - 1) {
+        console.warn(`DB timeout, retrying (${i + 1}/${retries})...`);
+        await new Promise(r => setTimeout(r, delay));
+      } else {
+        throw err;
+      }
+    }
+  }
+};
+
+export const connectDB = async () => {
   try {
     await prisma.$connect();
-    console.log('✅ Database Connected Successfully');
-  } catch (error) {
-    console.error('❌ Database Connection Failed:', error.message);
+    console.log('✅ Database connected');
+  } catch (err) {
+    console.error('❌ Database connection failed:', err.message);
     process.exit(1);
   }
 };
 
-const disconnectDB = async () => {
+export const disconnectDB = async () => {
   await prisma.$disconnect();
+  await pool.end();
 };
-
-export { prisma, connectDB, disconnectDB };

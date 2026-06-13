@@ -6,6 +6,7 @@ const token = () => localStorage.getItem('token');
 const DEFAULT_CATEGORIES = [
   { slug: 'retro-kits',   name: 'Retro Kits',   description: 'Classic football jerseys from the golden eras',    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=400&q=80' },
   { slug: 'new-season',   name: 'New Season',   description: 'Latest kits and gear for the 2025/26 season',      image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80' },
+  { slug: 'national-teams', name: 'National Teams', description: 'Official kits and gear for your favorite national squads.', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
   { slug: 'footwear',     name: 'Footwear',     description: 'Premium boots and trainers for every pitch',        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
   { slug: 'backpacks',    name: 'Backpacks',    description: 'Durable training and matchday bags',                image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80' },
   { slug: 'special-kits', name: 'Special Kits', description: 'Limited edition and special release kits',          image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=400&q=80' },
@@ -85,7 +86,6 @@ const ProductsManager = () => {
         )
       );
       const created = results.map(r => r.data || r.success && r).filter(Boolean);
-      // Re-fetch to get proper DB records with IDs
       const res  = await authFetch(`${API}/categories`);
       const data = await res.json();
       setCategories(data.data?.length > 0 ? data.data : DEFAULT_CATEGORIES);
@@ -98,77 +98,82 @@ const ProductsManager = () => {
   };
 
   // ── Product handlers ─────────────────────────────────────────────
+
+  // ✅ Accumulate files one-by-one instead of replacing
   const handleImageSelect = (e) => {
-    const files = Array.from(e.target.files);
-    setImageFiles(files);
-    setImagePreviews(files.map(f => URL.createObjectURL(f)));
+    const newFiles = Array.from(e.target.files);
+    setImageFiles(prev => {
+      const combined = [...prev, ...newFiles];
+      setImagePreviews(combined.map(f => URL.createObjectURL(f)));
+      return combined;
+    });
+    // Reset input so the same file can be re-selected if needed
+    e.target.value = '';
   };
 
-const handleProductSubmit = async (e) => {
-  e.preventDefault();
-  setProductError('');
-  
-  if (!productForm.categorySlug) {
-    setProductError('Please select a category');
-    return;
-  }
+  // ✅ Remove a single image from the selection
+  const removeImagePreview = (index) => {
+    setImageFiles(prev => prev.filter((_, i) => i !== index));
+    setImagePreviews(prev => prev.filter((_, i) => i !== index));
+  };
 
-  setProductLoading(true);
+  const handleProductSubmit = async (e) => {
+    e.preventDefault();
+    setProductError('');
 
-  const fd = new FormData();
-  fd.append('name', productForm.name);
-  fd.append('description', productForm.description || '');
-  fd.append('price', productForm.price);
-  fd.append('oldPrice', productForm.oldPrice || '');
-  fd.append('brand', productForm.brand || '');
-  fd.append('categorySlug', productForm.categorySlug);
-  fd.append('stockQuantity', productForm.stockQuantity || '0');
-  fd.append('inStock', productForm.inStock ? 'true' : 'false');
-  fd.append('featured', productForm.featured ? 'true' : 'false');
-
-  // Append images
-  imageFiles.forEach(file => fd.append('images', file));
-
-  const url = editingProduct 
-    ? `${API}/products/${editingProduct}` 
-    : `${API}/products`;
-  
-  const method = editingProduct ? 'PUT' : 'POST';
-
-  try {
-    const res = await fetch(url, {
-      method: method,
-      headers: {
-        Authorization: `Bearer ${token()}`,   // ← ONLY this header
-        // DO NOT set Content-Type when using FormData
-      },
-      body: fd,
-    });
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      setProductError(data.message || 'Failed to save product');
+    if (!productForm.categorySlug) {
+      setProductError('Please select a category');
       return;
     }
 
-    alert(editingProduct ? 'Product updated successfully!' : '✅ Product created successfully!');
+    setProductLoading(true);
 
-    // Reset form
-    setProductForm(EMPTY_PRODUCT_FORM);
-    setImageFiles([]);
-    setImagePreviews([]);
-    setEditingProduct(null);
-    setShowProductForm(false);
-    
-    fetchProducts();
-  } catch (err) {
-    console.error(err);
-    setProductError('Network error. Please make sure the server is running.');
-  } finally {
-    setProductLoading(false);
-  }
-};
+    const fd = new FormData();
+    fd.append('name', productForm.name);
+    fd.append('description', productForm.description || '');
+    fd.append('price', productForm.price);
+    fd.append('oldPrice', productForm.oldPrice || '');
+    fd.append('brand', productForm.brand || '');
+    fd.append('categorySlug', productForm.categorySlug);
+    fd.append('stockQuantity', productForm.stockQuantity || '0');
+    fd.append('inStock', productForm.inStock ? 'true' : 'false');
+    fd.append('featured', productForm.featured ? 'true' : 'false');
+
+    imageFiles.forEach(file => fd.append('images', file));
+
+    const url    = editingProduct ? `${API}/products/${editingProduct}` : `${API}/products`;
+    const method = editingProduct ? 'PUT' : 'POST';
+
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { Authorization: `Bearer ${token()}` },
+        body: fd,
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        setProductError(data.message || 'Failed to save product');
+        return;
+      }
+
+      alert(editingProduct ? 'Product updated successfully!' : '✅ Product created successfully!');
+
+      setProductForm(EMPTY_PRODUCT_FORM);
+      setImageFiles([]);
+      setImagePreviews([]);
+      setEditingProduct(null);
+      setShowProductForm(false);
+
+      fetchProducts();
+    } catch (err) {
+      console.error(err);
+      setProductError('Network error. Please make sure the server is running.');
+    } finally {
+      setProductLoading(false);
+    }
+  };
 
   const handleEditProduct = (p) => {
     setProductForm({
@@ -351,14 +356,38 @@ const handleProductSubmit = async (e) => {
                     </div>
 
                     <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Product Images</label>
-                      <input type="file" multiple accept="image/*" onChange={handleImageSelect}
-                        className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:text-xs" />
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Product Images
+                        <span className="ml-2 text-xs text-gray-400 font-normal">
+                          — click to add one or more at a time ({imageFiles.length} selected)
+                        </span>
+                      </label>
+                      <input
+                        type="file"
+                        multiple
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:text-xs"
+                      />
+
+                      {/* ✅ Previews with individual remove buttons */}
                       {imagePreviews.length > 0 && (
                         <div className="flex gap-3 mt-3 flex-wrap">
                           {imagePreviews.map((src, i) => (
-                            <img key={i} src={src} alt={`preview-${i}`}
-                              className="w-20 h-20 object-cover rounded-xl border border-gray-200" />
+                            <div key={i} className="relative">
+                              <img
+                                src={src}
+                                alt={`preview-${i}`}
+                                className="w-20 h-20 object-cover rounded-xl border border-gray-200"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => removeImagePreview(i)}
+                                className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white rounded-full text-xs flex items-center justify-center hover:bg-red-600 transition"
+                              >
+                                ×
+                              </button>
+                            </div>
                           ))}
                         </div>
                       )}

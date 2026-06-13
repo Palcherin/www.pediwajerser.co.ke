@@ -3,9 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { FaShieldAlt, FaTruck, FaWhatsapp, FaCheck, FaChevronDown, FaMapMarkerAlt, FaMoneyBillWave, FaMobileAlt } from 'react-icons/fa';
 
-// ── Delivery Zones ────────────────────────────────────────────────
-// nearNairobi: true  → both Cash on Delivery AND M-Pesa allowed
-// nearNairobi: false → M-Pesa ONLY
 const DELIVERY_ZONES = {
   'Nairobi CBD & Surrounds': {
     fee: 150, nearNairobi: true,
@@ -47,7 +44,6 @@ const PAYMENT_OPTIONS = [
     label: 'Cash on Delivery',
     sub: 'Pay when your order arrives',
     icon: FaMoneyBillWave,
-    color: 'emerald',
     nairobiOnly: true,
   },
   {
@@ -55,30 +51,30 @@ const PAYMENT_OPTIONS = [
     label: 'M-Pesa',
     sub: 'Pay via M-Pesa till/paybill',
     icon: FaMobileAlt,
-    color: 'green',
     nairobiOnly: false,
   },
 ];
 
-// ── Main Component ────────────────────────────────────────────────
 const CheckoutPage = () => {
-  const { cart, total, clearCart } = useCart();
+  const { cart, clearCart } = useCart();
   const navigate = useNavigate();
-  
+
   const [form, setForm] = useState({
     name: '', phone: '', zone: '', area: '',
     houseNumber: '', notes: '', payment: 'cash',
   });
-  const [errors, setErrors]   = useState({});
-  const [placed, setPlaced]   = useState(false);
+  const [errors,  setErrors]  = useState({});
+  const [placed,  setPlaced]  = useState(false);
   const [loading, setLoading] = useState(false);
 
   const selectedZoneData = DELIVERY_ZONES[form.zone];
   const deliveryFee      = selectedZoneData?.fee || 0;
   const isNairobi        = selectedZoneData?.nearNairobi ?? true;
-  const grandTotal       = total + deliveryFee;
 
-  // If zone changes to non-Nairobi and cash was selected → switch to mpesa
+  // ✅ Compute subtotal directly from cart — avoids context sync issues
+  const subtotal  = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+  const grandTotal = subtotal + deliveryFee;
+
   const handleChange = (field, value) => {
     setForm(prev => {
       const updated = field === 'zone'
@@ -117,17 +113,16 @@ const CheckoutPage = () => {
           deliveryNotes: form.notes || '',
           paymentMethod: form.payment === 'mpesa' ? 'MPESA' : 'CASH_ON_DELIVERY',
           totalAmount:   grandTotal,
-        // Inside handleSubmit, update the orderItems mapping:
-orderItems: cart.map(item => ({
-  productId: item.id,
-  name:      item.name,                          // ← product name
-  size:      item.size       || 'N/A',           // ← selected size
-  printing:  item.printing?.type !== 'none'
-    ? `${item.printing?.name || ''}${item.printing?.number ? ` #${item.printing.number}` : ''}`
-    : 'None',                                    // ← printing details
-  quantity:  item.quantity,
-  price:     item.price,
-})),
+          orderItems: cart.map(item => ({
+            productId: item.productId || item.id,
+            name:      item.name,
+            size:      item.size     || 'N/A',
+            printing:  item.printing?.type !== 'none'
+              ? `${item.printing?.name || ''}${item.printing?.number ? ` #${item.printing.number}` : ''}`
+              : 'None',
+            quantity:  Number(item.quantity) || 1,
+            price:     Number(item.price)    || 0,
+          })),
         }),
       });
       const data = await res.json();
@@ -156,8 +151,10 @@ orderItems: cart.map(item => ({
           Delivering to <span className="font-medium text-gray-600">{form.area}, {form.zone}</span>.
           We'll confirm via WhatsApp shortly.
         </p>
-        <button onClick={() => navigate('/')}
-          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 rounded-2xl transition-all">
+        <button
+          onClick={() => navigate('/')}
+          className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-4 rounded-2xl transition-all"
+        >
           Continue Shopping
         </button>
       </div>
@@ -169,8 +166,10 @@ orderItems: cart.map(item => ({
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
       <div className="text-center">
         <p className="text-2xl font-bold text-gray-700 mb-2">Your cart is empty</p>
-        <button onClick={() => navigate('/')}
-          className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-semibold hover:bg-emerald-700 transition mt-4">
+        <button
+          onClick={() => navigate('/')}
+          className="bg-emerald-600 text-white px-8 py-3 rounded-2xl font-semibold hover:bg-emerald-700 transition mt-4"
+        >
           Browse Products
         </button>
       </div>
@@ -185,8 +184,12 @@ orderItems: cart.map(item => ({
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           <h1 className="text-xl font-bold text-gray-900">Checkout</h1>
           <div className="flex items-center gap-5 text-sm text-gray-400">
-            <span className="flex items-center gap-1.5"><FaShieldAlt className="text-emerald-500" /> Secure</span>
-            <span className="flex items-center gap-1.5"><FaTruck className="text-emerald-500" /> Fast Delivery</span>
+            <span className="flex items-center gap-1.5">
+              <FaShieldAlt className="text-emerald-500" /> Secure
+            </span>
+            <span className="flex items-center gap-1.5">
+              <FaTruck className="text-emerald-500" /> Fast Delivery
+            </span>
           </div>
         </div>
       </div>
@@ -221,7 +224,6 @@ orderItems: cart.map(item => ({
           {/* Step 2 — Delivery Location */}
           <Section title="Delivery Location" step="2">
 
-            {/* Zone + Area — two dropdowns side by side */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
               {/* Zone dropdown */}
@@ -246,7 +248,7 @@ orderItems: cart.map(item => ({
                 </div>
               </Field>
 
-              {/* Area dropdown — disabled until zone chosen */}
+              {/* Area dropdown */}
               <Field label="Specific Area" error={errors.area}>
                 <div className="relative">
                   <select
@@ -265,7 +267,7 @@ orderItems: cart.map(item => ({
               </Field>
             </div>
 
-            {/* Delivery fee badge — shown once zone is selected */}
+            {/* Delivery fee badge */}
             {form.zone && (
               <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
                 <FaTruck className="text-emerald-600 flex-shrink-0" />
@@ -281,7 +283,7 @@ orderItems: cart.map(item => ({
               </div>
             )}
 
-            {/* House number — always visible */}
+            {/* House number */}
             <Field label="House / Building / Apartment" error={errors.houseNumber}>
               <input
                 value={form.houseNumber}
@@ -306,7 +308,6 @@ orderItems: cart.map(item => ({
           {/* Step 3 — Payment */}
           <Section title="Payment Method" step="3">
 
-            {/* Non-Nairobi notice */}
             {form.zone && !isNairobi && (
               <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-2">
                 <span className="text-amber-500 text-lg mt-0.5">⚠️</span>
@@ -324,7 +325,7 @@ orderItems: cart.map(item => ({
               {PAYMENT_OPTIONS.map(opt => {
                 const isDisabled = opt.nairobiOnly && !isNairobi;
                 const isSelected = form.payment === opt.value;
-                const Icon = opt.icon;
+                const Icon       = opt.icon;
 
                 return (
                   <label
@@ -415,24 +416,30 @@ orderItems: cart.map(item => ({
 
             <div className="space-y-4 mb-6">
               {cart.map((item, i) => (
-                <div key={i} className="flex gap-3 items-start">
+                <div key={item.id || i} className="flex gap-3 items-start">
                   <img
-                    src={item.image}
+                    src={item.image || 'https://placehold.co/64?text=No+Image'}
                     alt={item.name}
                     className="w-16 h-16 rounded-xl object-cover bg-gray-100 flex-shrink-0"
+                    onError={e => { e.target.src = 'https://placehold.co/64?text=No+Image'; }}
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-gray-800 leading-tight line-clamp-2">{item.name}</p>
-                    {item.size && <p className="text-xs text-gray-400 mt-0.5">Size: {item.size}</p>}
+                    <p className="text-sm font-semibold text-gray-800 leading-tight line-clamp-2">
+                      {item.name}
+                    </p>
+                    {item.size && item.size !== 'N/A' && (
+                      <p className="text-xs text-gray-400 mt-0.5">Size: {item.size}</p>
+                    )}
                     {item.printing?.type !== 'none' && item.printing?.name && (
                       <p className="text-xs text-emerald-600 mt-0.5">
-                        Printing: {item.printing.name}{item.printing.number ? ` #${item.printing.number}` : ''}
+                        Printing: {item.printing.name}
+                        {item.printing.number ? ` #${item.printing.number}` : ''}
                       </p>
                     )}
-                    <p className="text-xs text-gray-400 mt-1">Qty: {item.quantity}</p>
+                    <p className="text-xs text-gray-400 mt-1">Qty: {item.quantity ?? 1}</p>
                   </div>
                   <p className="text-sm font-bold text-gray-900 flex-shrink-0">
-                    KSh {(item.price * item.quantity).toLocaleString()}
+                    KSh {((Number(item.price) || 0) * (Number(item.quantity) || 1)).toLocaleString()}
                   </p>
                 </div>
               ))}
@@ -441,7 +448,7 @@ orderItems: cart.map(item => ({
             <div className="border-t border-gray-100 pt-4 space-y-2 text-sm">
               <div className="flex justify-between text-gray-500">
                 <span>Subtotal</span>
-                <span>KSh {total.toLocaleString()}</span>
+                <span>KSh {subtotal.toLocaleString()}</span>
               </div>
               <div className="flex justify-between text-gray-500">
                 <span className="flex items-center gap-1.5">
@@ -511,8 +518,11 @@ const inputCls = (err) =>
   `w-full border ${err ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-white'} rounded-2xl px-4 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-colors`;
 
 const selectCls = (err, disabled = false) =>
-  `w-full border ${err ? 'border-red-400 bg-red-50' : disabled ? 'border-gray-100 bg-gray-50 text-gray-400' : 'border-gray-200 bg-white'} 
-   rounded-2xl pl-9 pr-10 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer`;
+  `w-full border ${
+    err      ? 'border-red-400 bg-red-50'              :
+    disabled ? 'border-gray-100 bg-gray-50 text-gray-400' :
+               'border-gray-200 bg-white'
+  } rounded-2xl pl-9 pr-10 py-3 text-sm focus:outline-none focus:border-emerald-500 transition-colors appearance-none cursor-pointer`;
 
 const Section = ({ title, step, children }) => (
   <div className="bg-white rounded-3xl shadow-sm p-6 border border-gray-100">
