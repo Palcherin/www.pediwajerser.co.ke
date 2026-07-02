@@ -1,62 +1,23 @@
 {
-  "name": "city-server",
+  "name": "server",
   "version": "1.0.0",
-  "description": "",
-  "main": "server.ts",
+  "main": "index.js",
   "scripts": {
-    "dev": "nodemon src/server.ts",
-    "build": "tsc",
-    "start": "node src/server.ts",
-    "generate": "prisma generate",
-    "postinstall": "prisma generate",
-    "seed": "ts-node src/seed/createAdmin.js",
-    "reset": "ts-node src/reset.mjs"
-  },
-  "nodemonConfig": {
-    "watch": [
-      "src"
-    ],
-    "ext": "ts",
-    "ignore": [
-      "src/**/*.spec.ts"
-    ],
-    "exec": "ts-node src/server.ts",
-    "module": "ESNext",
-    "moduleResolution": "node"
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "type": "module",
+  "description": "",
   "dependencies": {
-    "@prisma/adapter-pg": "^7.8.0",
-    "@prisma/client": "^7.8.0",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
     "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "helmet": "^8.1.0",
-    "imagekit": "^6.0.0",
+    "express-validator": "^7.3.2",
     "jsonwebtoken": "^9.0.3",
-    "mongodb": "^7.2.0",
-    "mongoose": "^9.6.2",
-    "morgan": "^1.10.1",
-    "multer": "^2.1.1",
-    "node-telegram-bot-api": "^0.67.0",
-    "nodemailer": "^8.0.10",
-    "pg": "^8.20.0",
-    "sharp": "^0.34.5",
-    "twilio": "^6.0.2",
-    "zod": "^4.4.3"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.19",
-    "@types/express": "^5.0.6",
-    "@types/morgan": "^1.9.10",
-    "@types/node": "^25.7.0",
-    "nodemon": "^3.1.14",
-    "prisma": "^7.8.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^6.0.3"
+    "pg": "^8.22.0",
+    "pg-hstore": "^2.3.4",
+    "sequelize": "^6.37.8"
   }
 }
