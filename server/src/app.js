@@ -13,6 +13,9 @@ const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 
+// Import Swagger
+const setupSwagger = require('./config/swagger');
+
 // Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
@@ -83,7 +86,8 @@ app.get('/', (req, res) => {
         endpoints: {
             health: '/health',
             api: '/api',
-            documentation: '/api-docs'
+            documentation: '/api-docs',
+            swaggerJson: '/api-docs.json'
         },
         status: 'running',
         environment: process.env.NODE_ENV
@@ -104,6 +108,10 @@ app.get('/health', (req, res) => {
     });
 });
 
+// Setup Swagger Documentation
+const swaggerSpec = setupSwagger(app);
+console.log('📚 Swagger documentation available at /api-docs');
+
 /**
  * API Routes
  * Grouped by resource with proper versioning
@@ -114,36 +122,6 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
-
-// API documentation route placeholder
-app.get('/api-docs', (req, res) => {
-    res.json({
-        message: 'API Documentation will be available here',
-        version: '1.0.0',
-        endpoints: [
-            {
-                resource: 'Authentication',
-                base: '/api/auth',
-                endpoints: ['POST /register', 'POST /login', 'GET /profile', 'PUT /profile']
-            },
-            {
-                resource: 'Products',
-                base: '/api/products',
-                endpoints: ['GET /', 'GET /:id', 'POST / (admin)', 'PUT /:id (admin)', 'DELETE /:id (admin)']
-            },
-            {
-                resource: 'Cart',
-                base: '/api/cart',
-                endpoints: ['GET /', 'POST /add', 'PUT /update', 'DELETE /remove', 'DELETE /clear']
-            },
-            {
-                resource: 'Orders',
-                base: '/api/orders',
-                endpoints: ['GET /', 'POST /', 'GET /:id', 'PUT /:id/status (admin)']
-            }
-        ]
-    });
-});
 
 // 404 handler
 app.use(notFoundHandler);
