@@ -17,10 +17,6 @@ const { ApiError } = require('./errorHandler');
  * 
  * @async
  * @function authenticate
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- * @throws {ApiError} If authentication fails
  */
 const authenticate = async (req, res, next) => {
     try {
@@ -71,10 +67,6 @@ const authenticate = async (req, res, next) => {
  * 
  * @async
  * @function authorizeAdmin
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- * @throws {ApiError} If user is not an admin
  */
 const authorizeAdmin = async (req, res, next) => {
     if (!req.user) {
@@ -88,38 +80,7 @@ const authorizeAdmin = async (req, res, next) => {
     next();
 };
 
-/**
- * Optional Authentication Middleware
- * 
- * Attempts to authenticate but continues even if no token is provided.
- * 
- * @async
- * @function optionalAuthenticate
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
-const optionalAuthenticate = async (req, res, next) => {
-    try {
-        const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
-            const token = authHeader.split(' ')[1];
-            const decoded = jwt.verify(token, process.env.JWT_SECRET);
-            const user = await User.findByPk(decoded.id);
-            if (user && user.is_active) {
-                req.user = user;
-                req.userId = user.id;
-            }
-        }
-    } catch (error) {
-        // Ignore authentication errors for optional auth
-        // Just proceed without user
-    }
-    next();
-};
-
 module.exports = {
     authenticate,
-    authorizeAdmin,
-    optionalAuthenticate
+    authorizeAdmin
 };

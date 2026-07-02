@@ -6,11 +6,11 @@
  * @module controllers/authController
  */
 
-const { User } = require('../models');
-const { ApiError } = require('../middleware/errorHandler');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 const { validationResult } = require('express-validator');
+const { ApiError } = require('../middleware/errorHandler');
+const { User } = require('../models');
 
 /**
  * Generate JWT token
@@ -32,13 +32,9 @@ const generateToken = (userId) => {
  * 
  * @async
  * @function register
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const register = async (req, res, next) => {
     try {
-        // Validate request
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             throw new ApiError(400, 'Validation error', 'VALIDATION_ERROR', errors.array());
@@ -105,13 +101,9 @@ const register = async (req, res, next) => {
  * 
  * @async
  * @function login
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const login = async (req, res, next) => {
     try {
-        // Validate request
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
             throw new ApiError(400, 'Validation error', 'VALIDATION_ERROR', errors.array());
@@ -159,9 +151,6 @@ const login = async (req, res, next) => {
  * 
  * @async
  * @function getProfile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const getProfile = async (req, res, next) => {
     try {
@@ -187,9 +176,6 @@ const getProfile = async (req, res, next) => {
  * 
  * @async
  * @function updateProfile
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
  */
 const updateProfile = async (req, res, next) => {
     try {
