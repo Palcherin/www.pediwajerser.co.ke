@@ -18,7 +18,7 @@ const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'Jersey Store API Documentation',
+            title: 'PEDI WA JERSEY   API Documentation',
             version: '1.0.0',
             description: `
                 🏈 Complete REST API documentation for Jersey Store E-Commerce Platform.
