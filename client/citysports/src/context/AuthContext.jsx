@@ -30,7 +30,7 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
-  const isAdmin = user?.role === 'ADMIN';
+  const isAdmin = user?.role === 'admin';
   const isLoggedIn = !!user;
 
   return (

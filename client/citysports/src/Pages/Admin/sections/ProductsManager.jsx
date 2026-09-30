@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
 const API = 'http://localhost:5000/api';
+const imgUrl = (p) => (p.startsWith('http') ? p : `http://localhost:5000${p}`);
 const token = () => localStorage.getItem('token');
 
 const DEFAULT_CATEGORIES = [
@@ -23,6 +24,31 @@ const EMPTY_CATEGORY_FORM = { name: '', description: '', image: '' };
 
 const authFetch = (url, opts = {}) =>
   fetch(url, { ...opts, headers: { Authorization: `Bearer ${token()}`, ...opts.headers } });
+
+const compressImage = (file, maxSize = 1600, quality = 0.82) =>
+  new Promise((resolve) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const scale = Math.min(1, maxSize / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(
+        (blob) => {
+          URL.revokeObjectURL(url);
+          resolve(blob && blob.size < file.size
+            ? new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' })
+            : file);
+        },
+        'image/jpeg',
+        quality
+      );
+    };
+    img.onerror = () => resolve(file);
+    img.src = url;
+  });
 
 const ProductsManager = () => {
   const [activeTab, setActiveTab]             = useState('products');
@@ -85,6 +111,7 @@ const ProductsManager = () => {
           }).then(r => r.json())
         )
       );
+      
       const created = results.map(r => r.data || r.success && r).filter(Boolean);
       const res  = await authFetch(`${API}/categories`);
       const data = await res.json();
@@ -100,15 +127,12 @@ const ProductsManager = () => {
   // ── Product handlers ─────────────────────────────────────────────
 
   // ✅ Accumulate files one-by-one instead of replacing
-  const handleImageSelect = (e) => {
-    const newFiles = Array.from(e.target.files);
-    setImageFiles(prev => {
-      const combined = [...prev, ...newFiles];
-      setImagePreviews(combined.map(f => URL.createObjectURL(f)));
-      return combined;
-    });
-    // Reset input so the same file can be re-selected if needed
+  const handleImageSelect = async (e) => {
+    const picked = Array.from(e.target.files);
     e.target.value = '';
+    const compressed = await Promise.all(picked.map((f) => compressImage(f)));
+    setImageFiles((prev) => [...prev, ...compressed]);
+    setImagePreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
   };
 
   // ✅ Remove a single image from the selection
@@ -182,7 +206,7 @@ const ProductsManager = () => {
       brand: p.brand || '', categorySlug: p.categorySlug || '',
       stockQuantity: p.stockQuantity, inStock: p.inStock, featured: p.featured || false,
     });
-    setImagePreviews(p.images || []);
+    setImagePreviews(p.images?.map(imgUrl) || []);
     setImageFiles([]);
     setEditingProduct(p.id);
     setProductError('');

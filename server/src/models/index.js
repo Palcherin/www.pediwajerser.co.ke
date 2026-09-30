@@ -15,6 +15,7 @@ const { sequelize } = require('../config/database');
 const User = require('./User')(sequelize, DataTypes);
 const Product = require('./Product')(sequelize, DataTypes);
 const Cart = require('./Cart')(sequelize, DataTypes);
+const Category = require('./Categories')(sequelize, DataTypes);
 const Order = require('./Order')(sequelize, DataTypes);
 const OrderItem = require('./OrderItem')(sequelize, DataTypes);
 const Review = require('./Review')(sequelize, DataTypes);
@@ -30,6 +31,7 @@ const defineAssociations = () => {
     Product.hasMany(Cart, { foreignKey: 'product_id', as: 'cartItems' });
     Product.hasMany(OrderItem, { foreignKey: 'product_id', as: 'orderItems' });
     Product.hasMany(Review, { foreignKey: 'product_id', as: 'reviews' });
+    Product.belongsTo(Category, { foreignKey: 'category_id', as: 'category' });
     
     // Cart associations
     Cart.belongsTo(User, { foreignKey: 'user_id', as: 'user' });

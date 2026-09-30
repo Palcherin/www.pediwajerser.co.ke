@@ -37,10 +37,10 @@ const initializeServer = async () => {
         await testConnection();
         
         // 2. Sync database models (in development, use alter: true for migrations)
-        if (NODE_ENV === 'development') {
-            await sequelize.sync({ alter: true });
-            console.log('📊 Database models synchronized');
-        }
+       if (NODE_ENV === 'development') {
+    await sequelize.sync({ alter: true });
+    console.log('📊 Database models synchronized');
+}
         
         // 3. Start the server
         const server = app.listen(PORT, () => {

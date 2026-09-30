@@ -37,7 +37,7 @@ const AppLayout = () => {
 
         {/* Admin only */}
         <Route path='/admin' element={
-          <ProtectedRoute adminOnly>
+          <ProtectedRoute admin>
             <AdminDashboard />
           </ProtectedRoute>
         } />

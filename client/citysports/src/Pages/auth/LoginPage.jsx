@@ -12,7 +12,7 @@ const LoginPage = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError(''); 
+    setError('');
     setLoading(true);
 
     try {
@@ -36,19 +36,19 @@ const LoginPage = () => {
         return;
       }
 
-      if (data.success && data.data?.user && data.data?.token) {
-  login(data.data.user, data.data.token);
-  
-  // ← Add this to confirm token is saved before navigating
-  console.log('Token saved:', localStorage.getItem('token'));
-  console.log('User role:', data.data.user.role);
+      // Backend returns { success, message, token, user }.
+      // Also accept { data: { token, user } } in case the shape changes.
+      const user = data.user ?? data.data?.user;
+      const token = data.token ?? data.data?.token;
 
-  if (data.data.user.role === 'ADMIN') {
-    navigate('/admin');
-  } else {
-    navigate('/');
-  }
-}else {
+      if (data.success && user && token) {
+        login(user, token);
+
+        const role = String(user.role || '').toLowerCase();
+        console.log('User role:', role);
+
+        navigate(role === 'admin' ? '/admin' : '/dashboard');
+      } else {
         setError('Invalid response from server');
       }
     } catch (err) {
@@ -106,11 +106,6 @@ const LoginPage = () => {
             {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div className="mt-6 text-center text-xs text-gray-400">
-          Test Admin Account:<br />
-          <span className="font-mono">admin@citysports.co.ke</span> / <span className="font-mono">Admin@1234</span>
-        </div>
       </div>
     </div>
   );

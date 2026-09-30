@@ -5,7 +5,7 @@
  * 
  * @module app
  */
-
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -23,7 +23,11 @@ const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
 const reviewRoutes = require('./routes/reviewRoutes');
+const customerRoutes = require('./routes/customerRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
+  const categoryRoutes = require('./routes/categoriesRoutes');
 
+const path = require('path');
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/logger');
@@ -46,16 +50,27 @@ const limiter = rateLimit({
     legacyHeaders: false
 });
 
+
 /**
  * CORS Configuration
  * Allows cross-origin requests from specified origins
  */
+const allowedOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
+];
+
 const corsOptions = {
-    origin: process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',') : '*',
+    origin: (origin, callback) => {
+        // allow tools like Thunder Client / curl (no Origin header) and listed origins
+        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+        return callback(new Error(`CORS blocked for origin: ${origin}`));
+    },
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
     credentials: true,
-    optionsSuccessStatus: 200
+    optionsSuccessStatus: 200,
 };
 
 // Apply middleware
@@ -64,6 +79,8 @@ app.use(compression()); // Response compression
 app.use(cors(corsOptions)); // Cross-origin resource sharing
 app.use(express.json({ limit: '10mb' })); // JSON body parser
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // URL-encoded body parser
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // Security headers
+  app.use('/api/categories', categoryRoutes);
 
 // Logging middleware
 if (process.env.NODE_ENV !== 'test') {
@@ -122,6 +139,7 @@ app.use('/api/products', productRoutes);
 app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
+app.use('/api/customers', customerRoutes);
 
 // 404 handler
 app.use(notFoundHandler);

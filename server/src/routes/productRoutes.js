@@ -16,13 +16,15 @@ const {
 } = require('../controllers/productController');
 const { authenticate, authorizeAdmin } = require('../middleware/auth');
 
+
+
 // Validation rules
 const productValidation = [
     body('name').notEmpty().trim().withMessage('Product name is required'),
     body('price').isNumeric().isFloat({ min: 0 }).withMessage('Price must be a positive number'),
     body('stock_quantity').optional().isInt({ min: 0 }).withMessage('Stock quantity must be a positive integer'),
 ];
-
+const upload = require('../middleware/productupload');
 /**
  * @swagger
  * tags:
@@ -165,7 +167,7 @@ router.get('/:id', getProductById);
  *       403:
  *         description: Admin access required
  */
-router.post('/', authenticate, authorizeAdmin, productValidation, createProduct);
+router.post('/', authenticate, authorizeAdmin, upload.array('images', 10), createProduct);
 
 /**
  * @swagger
@@ -223,7 +225,8 @@ router.post('/', authenticate, authorizeAdmin, productValidation, createProduct)
  *       404:
  *         description: Product not found
  */
-router.put('/:id', authenticate, authorizeAdmin, updateProduct);
+
+router.put('/:id', authenticate, authorizeAdmin, upload.array('images', 10), updateProduct);
 
 /**
  * @swagger

@@ -1,328 +1,181 @@
-/**
- * Product Controller
- * 
- * Handles all product management operations
- * 
- * @module controllers/productController
- */
-
-const { Product, Review, User } = require('../models');
+const { Product } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const { Op } = require('sequelize');
 
-/**
- * Get all products with filtering and pagination
- * 
- * @async
- * @function getAllProducts
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
+
+console.log('>>> productController LOADED (cloudinary version)');
+const SORT_FIELDS = {
+    created_at: 'created_at',
+    createdAt: 'created_at',
+    price: 'price',
+    name: 'name',
+    discount: 'discount',
+};
+const { uploadMany, deleteMany } = require('../utils/cloudinaryUpload');
+// Multipart form values arrive as strings, so convert them
+const toNum = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
+const toBool = (v, fallback) => (v === undefined ? fallback : v === true || v === 'true');
+const parseSizes = (v) => {
+    if (v === undefined) return undefined;
+    if (Array.isArray(v)) return v;
+    try {
+        const parsed = JSON.parse(v);
+        if (Array.isArray(parsed)) return parsed;
+    } catch { /* not JSON */ }
+    return String(v).split(',').map((s) => s.trim()).filter(Boolean);
+};
+const calcDiscount = (price, oldPrice) =>
+    oldPrice && price !== null && oldPrice > price
+        ? Math.round(((oldPrice - price) / oldPrice) * 100)
+        : 0;
+
 const getAllProducts = async (req, res, next) => {
     try {
         const {
-            category,
-            brand,
-            minPrice,
-            maxPrice,
-            search,
-            sortBy = 'created_at',
-            sortOrder = 'DESC',
-            limit = 20,
-            offset = 0
+            category, minPrice, maxPrice, search,
+            sortBy = 'created_at', sortOrder = 'DESC',
+            limit = 100, offset = 0,
         } = req.query;
-        
-        // Build where clause
-        const where = { is_active: true };
-        
-        if (category) {
-            where.category = category;
-        }
-        
-        if (brand) {
-            where.brand = brand;
-        }
-        
+
+        const where = {};
+        if (category) where.categorySlug = category;
+
         if (minPrice || maxPrice) {
             where.price = {};
             if (minPrice) where.price[Op.gte] = parseFloat(minPrice);
             if (maxPrice) where.price[Op.lte] = parseFloat(maxPrice);
         }
-        
+
         if (search) {
             where[Op.or] = [
                 { name: { [Op.iLike]: `%${search}%` } },
-                { description: { [Op.iLike]: `%${search}%` } }
+                { description: { [Op.iLike]: `%${search}%` } },
             ];
         }
-        
-        // Get products with review statistics
+
+        const orderField = SORT_FIELDS[sortBy] || 'created_at';
+        const orderDir = String(sortOrder).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+
         const { count, rows } = await Product.findAndCountAll({
             where,
-            include: [
-                {
-                    model: Review,
-                    attributes: [
-                        [sequelize.fn('AVG', sequelize.col('rating')), 'averageRating'],
-                        [sequelize.fn('COUNT', sequelize.col('id')), 'reviewCount']
-                    ]
-                }
-            ],
             limit: parseInt(limit),
             offset: parseInt(offset),
-            order: [[sortBy, sortOrder]],
-            group: ['Product.id']
+            order: [[orderField, orderDir]],
         });
-        
-        res.json({
-            success: true,
-            total: count,
-            limit: parseInt(limit),
-            offset: parseInt(offset),
-            products: rows
-        });
+
+        res.json({ success: true, total: count, data: rows });
     } catch (error) {
         next(error);
     }
 };
 
-/**
- * Get product by ID
- * 
- * @async
- * @function getProductById
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
 const getProductById = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        
-        const product = await Product.findByPk(id, {
-            where: { is_active: true },
-            include: [
-                {
-                    model: Review,
-                    attributes: [
-                        [sequelize.fn('AVG', sequelize.col('rating')), 'averageRating'],
-                        [sequelize.fn('COUNT', sequelize.col('id')), 'reviewCount']
-                    ]
-                },
-                {
-                    model: Review,
-                    as: 'recentReviews',
-                    limit: 5,
-                    order: [['created_at', 'DESC']],
-                    include: [
-                        {
-                            model: User,
-                            attributes: ['id', 'first_name', 'last_name']
-                        }
-                    ]
-                }
-            ],
-            group: ['Product.id', 'recentReviews.id', 'recentReviews->User.id']
-        });
-        
-        if (!product) {
-            throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
-        }
-        
-        res.json({
-            success: true,
-            product
-        });
+        const product = await Product.findByPk(req.params.id);
+        if (!product) throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
+        res.json({ success: true, data: product });
     } catch (error) {
         next(error);
     }
 };
 
-/**
- * Create a new product (admin only)
- * 
- * @async
- * @function createProduct
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
 const createProduct = async (req, res, next) => {
+    let uploaded = [];
     try {
-        const {
-            name,
-            description,
-            price,
-            discount_price,
-            category,
-            brand,
-            size,
-            color,
-            material,
-            stock_quantity,
-            images
-        } = req.body;
-        
+        console.log('CREATE → files:', req.files?.length, '| buffer:', !!req.files?.[0]?.buffer);
+        const { name, description, brand, categorySlug } = req.body;
+        const price = toNum(req.body.price);
+        const oldPrice = toNum(req.body.oldPrice);
+
+        if (!name || price === null || !categorySlug) {
+            return res.status(400).json({
+                success: false,
+                message: 'name, price and categorySlug are required',
+            });
+        }
+
+        uploaded = await uploadMany(req.files);
+        const images = uploaded.length
+            ? uploaded
+            : Array.isArray(req.body.images) ? req.body.images : [];
+
         const product = await Product.create({
             name,
-            description,
+            description: description || null,
             price,
-            discount_price,
-            category,
-            brand,
-            size,
-            color,
-            material,
-            stock_quantity: stock_quantity || 0,
-            images: images || [],
-            is_active: true
+            oldPrice,
+            discount: calcDiscount(price, oldPrice),
+            images,
+            sizes: parseSizes(req.body.sizes) || [],
+            categorySlug,
+            brand: brand || null,
+            stockQuantity: toNum(req.body.stockQuantity) ?? 0,
+            inStock: toBool(req.body.inStock, true),
+            featured: toBool(req.body.featured, false),
+            
         });
-        
-        res.status(201).json({
-            success: true,
-            message: 'Product created successfully',
-            product
-        });
+
+        res.status(201).json({ success: true, data: product });
     } catch (error) {
+          console.error('CREATE PRODUCT ERROR:', error);
+        await deleteMany(uploaded); // don't leave orphaned images if the DB insert fails
         next(error);
     }
 };
 
-/**
- * Update a product (admin only)
- * 
- * @async
- * @function updateProduct
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
 const updateProduct = async (req, res, next) => {
+    let uploaded = [];
     try {
-        const { id } = req.params;
-        const {
-            name,
-            description,
-            price,
-            discount_price,
-            category,
-            brand,
-            size,
-            color,
-            material,
-            stock_quantity,
-            images,
-            is_active
-        } = req.body;
-        
-        const product = await Product.findByPk(id);
-        if (!product) {
-            throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
+        const product = await Product.findByPk(req.params.id);
+        if (!product) throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
+
+        const b = req.body;
+        const data = {};
+
+if (b.name !== undefined) data.name = b.name;
+if (b.description !== undefined) data.description = b.description || null;
+if (b.brand !== undefined) data.brand = b.brand || null;
+if (b.categorySlug) data.categorySlug = b.categorySlug;
+if (b.price !== undefined && b.price !== '') data.price = toNum(b.price);
+if (b.oldPrice !== undefined) data.oldPrice = toNum(b.oldPrice);
+if (b.stockQuantity !== undefined) data.stockQuantity = toNum(b.stockQuantity) ?? 0;
+if (b.inStock !== undefined) data.inStock = toBool(b.inStock, true);
+if (b.featured !== undefined) data.featured = toBool(b.featured, false);
+if (b.sizes !== undefined) data.sizes = parseSizes(b.sizes);
+
+        // New uploads replace the images; no uploads keeps the existing ones
+        let oldImages = [];
+        if (req.files && req.files.length) {
+            uploaded = await uploadMany(req.files);
+            data.images = uploaded;
+            oldImages = product.images || [];
         }
-        
-        // Update product
-        const updateData = {
-            name,
-            description,
-            price,
-            discount_price,
-            category,
-            brand,
-            size,
-            color,
-            material,
-            stock_quantity,
-            images,
-            is_active
-        };
-        
-        // Remove undefined values
-        Object.keys(updateData).forEach(key => 
-            updateData[key] === undefined && delete updateData[key]
-        );
-        
-        await product.update(updateData);
-        
-        // Get updated product
-        const updatedProduct = await Product.findByPk(id);
-        
-        res.json({
-            success: true,
-            message: 'Product updated successfully',
-            product: updatedProduct
-        });
+
+        const finalPrice = data.price ?? product.price;
+        const finalOld = 'oldPrice' in data ? data.oldPrice : product.oldPrice;
+        data.discount = calcDiscount(finalPrice, finalOld);
+
+        await product.update(data);
+        deleteMany(oldImages); // fire-and-forget cleanup of replaced images
+
+        res.json({ success: true, data: await Product.findByPk(req.params.id) });
     } catch (error) {
+        await deleteMany(uploaded);
         next(error);
     }
 };
 
-/**
- * Delete a product (soft delete)
- * 
- * @async
- * @function deleteProduct
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
 const deleteProduct = async (req, res, next) => {
     try {
-        const { id } = req.params;
-        
-        const product = await Product.findByPk(id);
-        if (!product) {
-            throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
-        }
-        
-        // Soft delete
-        await product.update({ is_active: false });
-        
-        res.json({
-            success: true,
-            message: 'Product deleted successfully'
-        });
+        const product = await Product.findByPk(req.params.id);
+        if (!product) throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
+        const images = product.images || [];
+        await product.destroy();
+        deleteMany(images);
+        res.json({ success: true, message: 'Product deleted successfully' });
     } catch (error) {
         next(error);
     }
 };
 
-/**
- * Update product stock
- * 
- * @async
- * @function updateStock
- * @param {Object} req - Express request object
- * @param {Object} res - Express response object
- * @param {Function} next - Express next middleware function
- */
-const updateStock = async (req, res, next) => {
-    try {
-        const { id } = req.params;
-        const { quantity } = req.body;
-        
-        const product = await Product.findByPk(id);
-        if (!product) {
-            throw new ApiError(404, 'Product not found', 'PRODUCT_NOT_FOUND');
-        }
-        
-        await product.update({ stock_quantity: quantity });
-        
-        res.json({
-            success: true,
-            message: 'Stock updated successfully',
-            product
-        });
-    } catch (error) {
-        next(error);
-    }
-};
-
-module.exports = {
-    getAllProducts,
-    getProductById,
-    createProduct,
-    updateProduct,
-    deleteProduct,
-    updateStock
-};
+module.exports = { getAllProducts, getProductById, createProduct, updateProduct, deleteProduct };

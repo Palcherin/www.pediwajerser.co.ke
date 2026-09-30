@@ -197,9 +197,13 @@ const CategoryManager = () => {
                   type="text"
                   value={form.slug}
                   onChange={(e) => setForm({ ...form, slug: e.target.value })}
-                  className="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500"
+                  disabled={!!editing}
+                  className="w-full border border-gray-200 rounded-2xl px-4 py-3 focus:outline-none focus:border-emerald-500 disabled:bg-gray-50 disabled:text-gray-400"
                   placeholder="retro-kits"
                 />
+                {editing && (
+                  <p className="text-xs text-gray-400 mt-1">The slug can't be changed after creation.</p>
+                )}
               </div>
 
               <div>
