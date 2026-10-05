@@ -46,11 +46,11 @@ const Navbar = () => {
           <div className="hidden md:flex items-center gap-8 font-medium text-gray-700">
             <Link to="/" className="hover:text-emerald-600 transition-colors">Home</Link>
             <Link to="/category/new-season" className="hover:text-emerald-600 transition-colors">New Season</Link>
-             <Link to="/category/world-cup" className="hover:text-emerald-600 transition-colors">World Cup</Link>
+             <Link to="/category/national-teams" className="hover:text-emerald-600 transition-colors">National Teams</Link>
             <Link to="/category/retro-kits" className="hover:text-emerald-600 transition-colors">Retro Kits</Link>
             <Link to="/category/footwear" className="hover:text-emerald-600 transition-colors">Footwear</Link>
             <Link to="/category/others" className="hover:text-emerald-600 transition-colors">Others</Link>
-            <Link to="/blogs" className="hover:text-emerald-600 transition-colors">Blog</Link>
+            <Link to="/blog" className="hover:text-emerald-600 transition-colors">Blog</Link>
           </div>
 
           {/* Right Side */}
@@ -109,11 +109,11 @@ const Navbar = () => {
             <div className="flex flex-col gap-6 text-lg font-medium text-gray-700 px-2">
               <Link to="/" onClick={closeMobileMenu}>Home</Link>
               <Link to="/category/new-season" onClick={closeMobileMenu}>New Season</Link>
-              <Link to="/category/world-cup" onClick={closeMobileMenu}>World Cup</Link>
+              <Link to="/category/national-teams" onClick={closeMobileMenu}>National Teams</Link>
               <Link to="/category/retro-kits" onClick={closeMobileMenu}>Retro Kits</Link>
               <Link to="/category/footwear" onClick={closeMobileMenu}>Footwear</Link>
               <Link to="/category/backpacks" onClick={closeMobileMenu}>Backpacks</Link>
-              <Link to="/blogs" onClick={closeMobileMenu}>Blog</Link>
+              <Link to="/blog" onClick={closeMobileMenu}>Blog</Link>
             </div>
           </div>
         )}

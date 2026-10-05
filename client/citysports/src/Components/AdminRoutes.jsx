@@ -1,12 +1,13 @@
+// src/components/AdminRoute.jsx
 import React from 'react';
-import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { Navigate, Outlet, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
-const ProtectedRoute = ({ children, admin = false }) => {
+const AdminRoute = ({ children }) => {
   const { user, isAdmin, loading } = useAuth();
   const location = useLocation();
 
-  // Wait for AuthContext to read localStorage, otherwise a refresh bounces admins to login
+  // Wait for the context to read localStorage, otherwise a refresh sends admins to login
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center text-gray-400">
@@ -19,11 +20,11 @@ const ProtectedRoute = ({ children, admin = false }) => {
     return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
-  if (admin && !isAdmin) {
+  if (!isAdmin) {
     return <Navigate to="/" replace />;
   }
 
-  return children;
+  return children ?? <Outlet />;
 };
 
-export default ProtectedRoute;
+export default AdminRoute;

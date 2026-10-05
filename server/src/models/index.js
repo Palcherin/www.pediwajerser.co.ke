@@ -19,6 +19,7 @@ const Category = require('./Categories')(sequelize, DataTypes);
 const Order = require('./Order')(sequelize, DataTypes);
 const OrderItem = require('./OrderItem')(sequelize, DataTypes);
 const Review = require('./Review')(sequelize, DataTypes);
+const HeroSlide = require('./HeroSlide')(sequelize, DataTypes); // NEW: homepage carousel slides
 
 // Define associations
 const defineAssociations = () => {
@@ -48,6 +49,8 @@ const defineAssociations = () => {
     // Review associations
     Review.belongsTo(User, { foreignKey: 'user_id', as: 'user' });
     Review.belongsTo(Product, { foreignKey: 'product_id', as: 'product' });
+
+    // HeroSlide has no associations
 };
 
 // Call associations
@@ -58,7 +61,9 @@ module.exports = {
     User,
     Product,
     Cart,
+    Category,   
     Order,
     OrderItem,
-    Review
+    Review,
+    HeroSlide
 };

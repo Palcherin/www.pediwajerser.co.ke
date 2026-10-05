@@ -16,18 +16,27 @@ const {
     updateTracking,
     cancelOrder
 } = require('../controllers/orderController');
-const { authenticate, authorizeAdmin } = require('../middleware/auth');
+
 
 // Validation rules
+const { authenticate, optionalAuthenticate, authorizeAdmin } = require('../middleware/auth');
+
 const createOrderValidation = [
-    body('shipping_address').notEmpty().trim().withMessage('Shipping address is required'),
-    body('shipping_city').notEmpty().trim().withMessage('Shipping city is required'),
-    body('shipping_state').notEmpty().trim().withMessage('Shipping state is required'),
-    body('shipping_zip').notEmpty().trim().withMessage('Shipping ZIP code is required'),
-    body('shipping_country').notEmpty().trim().withMessage('Shipping country is required'),
-    body('payment_method').notEmpty().trim().withMessage('Payment method is required'),
-    body('notes').optional().trim()
+    body('customerName').trim().notEmpty().withMessage('Name is required'),
+    body('phone').trim().matches(/^(?:\+?254|0)[17]\d{8}$/).withMessage('Valid Kenyan phone number required'),
+    body('location').trim().notEmpty().withMessage('Location is required'),
+    body('houseNumber').trim().notEmpty().withMessage('Address / house number is required'),
+    body('deliveryNotes').optional({ checkFalsy: true }).trim(),
+    body('paymentMethod').isIn(['MPESA', 'COD','CASH_ON_DELIVERY']).withMessage('Invalid payment method'), // adjust to what you support
+    body('orderItems').isArray({ min: 1 }).withMessage('Order must have at least one item'),
+    body('orderItems.*.productId').isInt({ min: 1 }),
+    body('orderItems.*.quantity').isInt({ min: 1, max: 20 }),
+    body('paymentMethod')
+    .isIn(['MPESA', 'COD', 'CASH_ON_DELIVERY'])
+    .withMessage('Invalid payment method')
 ];
+
+router.post('/', optionalAuthenticate, createOrderValidation, createOrder);
 
 const updateStatusValidation = [
     body('status').isIn(['pending', 'processing', 'shipped', 'delivered', 'cancelled'])
@@ -38,7 +47,11 @@ const updatePaymentValidation = [
     body('status').isIn(['pending', 'paid', 'failed'])
         .withMessage('Invalid payment status')
 ];
-
+console.log({
+    optionalAuthenticate: typeof optionalAuthenticate,
+    createOrderValidation: typeof createOrderValidation,
+    createOrder: typeof createOrder
+});
 /**
  * @swagger
  * tags:
@@ -105,13 +118,14 @@ const updatePaymentValidation = [
  *                   type: string
  *                   example: Order created successfully
  *                 order:
+ * 
  *                   $ref: '#/components/schemas/Order'
  *       400:
  *         description: Cart is empty or insufficient stock
  *       401:
  *         $ref: '#/components/responses/UnauthorizedError'
  */
-router.post('/', authenticate, createOrderValidation, createOrder);
+router.post('/', optionalAuthenticate, createOrderValidation, createOrder);
 
 /**
  * @swagger

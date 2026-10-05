@@ -1,22 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import jerseyImage from '../../assets/AC INTER.jpeg';
-import juventusImage from '../../assets/Juventus1995.jpg';
-import FieldImage from '../../assets/Field image.jpeg';
-import Footware from '../../assets/FOOTWARE.jpeg';
-import Backpack from '../../assets/backpack.jpeg';
 import NewSeason from '../../assets/newseason2.jpeg';
 import Retro from '../../assets/RETRO3.jpeg';
 import Gloves from '../../assets/gloves.jpeg';
 import Training from '../../assets/training.jpeg';
 import footware1 from '../../assets/footware1.jpeg';
 
-const slides = [
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Uploaded images live on the API server; bundled asset imports are already URLs
+const imgUrl = (p) => (p && p.startsWith('/uploads') ? `${API}${p}` : p);
+
+// Convert a DB row (snake_case) into the shape the carousel uses
+const normalize = (s) => ({
+  image: imgUrl(s.image),
+  bgColor: s.bg_color || '#111111',
+  accent: s.accent || '#4ade80',
+  tag: s.tag || '',
+  // Admin form can't hold a real line break, so accept a literal "\n" too
+  title: (s.title || '').replace(/\\n/g, '\n'),
+  subtitle: s.subtitle || '',
+  cta: s.cta || 'Shop Now',
+  link: s.link || '/',
+});
+
+// Fallback slides: shown until the API returns slides, or if it fails / is empty
+const DEFAULT_SLIDES = [
   {
     image: NewSeason,
     bgColor: "#1a2e1e",
     accent: "#4ade80",
-    ctaBg: "bg-green-600 hover:bg-green-700",
     tag: "New Arrival",
     title: "New Season\nKits 2025/26",
     subtitle: "Wear the passion. Play like a pro.",
@@ -27,7 +40,6 @@ const slides = [
     image: Retro,
     bgColor: "#1e1a10",
     accent: "#fbbf24",
-    ctaBg: "bg-amber-600 hover:bg-amber-700",
     tag: "Fan Favourite",
     title: "Retro Kits\nRevival",
     subtitle: "Classic designs, timeless glory.",
@@ -38,7 +50,6 @@ const slides = [
     image: footware1,
     bgColor: "#101828",
     accent: "#60a5fa",
-    ctaBg: "bg-blue-600 hover:bg-blue-700",
     tag: "Best Sellers",
     title: "Elite Footwear\nCollection",
     subtitle: "Speed. Control. Power.",
@@ -49,7 +60,6 @@ const slides = [
     image: Training,
     bgColor: "#1c1410",
     accent: "#fb923c",
-    ctaBg: "bg-orange-600 hover:bg-orange-700",
     tag: "Pro Series",
     title: "Durable\nTraining Gear",
     subtitle: "Built for champions.",
@@ -60,7 +70,6 @@ const slides = [
     image: Gloves,
     bgColor: "#10181e",
     accent: "#38bdf8",
-    ctaBg: "bg-sky-600 hover:bg-sky-700",
     tag: "New In",
     title: "Glorious\nBackpacks",
     subtitle: "Carry your passion in style.",
@@ -70,8 +79,23 @@ const slides = [
 ];
 
 export const HeroCarousel = () => {
+  const [slides, setSlides] = useState(DEFAULT_SLIDES);
   const [current, setCurrent] = useState(0);
   const [animKey, setAnimKey] = useState(0);
+
+  // Load slides managed from the admin dashboard
+  useEffect(() => {
+    fetch(`${API}/api/hero-slides`)
+      .then((r) => r.json())
+      .then((d) => {
+        if (d.success && d.slides?.length) {
+          setSlides(d.slides.map(normalize));
+          setCurrent(0);
+          setAnimKey((k) => k + 1);
+        }
+      })
+      .catch(() => {}); // keep defaults on failure
+  }, []);
 
   const goTo = (index) => {
     setCurrent((index + slides.length) % slides.length);
@@ -81,9 +105,9 @@ export const HeroCarousel = () => {
   useEffect(() => {
     const timer = setInterval(() => goTo(current + 1), 7000);
     return () => clearInterval(timer);
-  }, [current]);
+  }, [current, slides.length]);
 
-  const slide = slides[current];
+  const slide = slides[current] || slides[0];
 
   return (
     <div
@@ -119,7 +143,7 @@ export const HeroCarousel = () => {
 
       {/* Slide Number */}
       <div className="absolute top-5 left-5 sm:top-7 sm:left-12 text-[10px] sm:text-xs font-medium tracking-widest text-white/40 z-20">
-        0{current + 1} / 0{slides.length}
+        {String(current + 1).padStart(2, '0')} / {String(slides.length).padStart(2, '0')}
       </div>
 
       {/* Vertical Dots */}
@@ -148,16 +172,18 @@ export const HeroCarousel = () => {
       >
 
         {/* Tag */}
-        <span
-          className="inline-block text-[9px] sm:text-[10px] font-medium tracking-[3px] uppercase px-3 py-1.5 rounded mb-4 sm:mb-5 w-fit animate-fadeUp"
-          style={{
-            color: slide.accent,
-            background: `${slide.accent}20`,
-            border: `1px solid ${slide.accent}40`
-          }}
-        >
-          {slide.tag}
-        </span>
+        {slide.tag && (
+          <span
+            className="inline-block text-[9px] sm:text-[10px] font-medium tracking-[3px] uppercase px-3 py-1.5 rounded mb-4 sm:mb-5 w-fit animate-fadeUp"
+            style={{
+              color: slide.accent,
+              background: `${slide.accent}20`,
+              border: `1px solid ${slide.accent}40`
+            }}
+          >
+            {slide.tag}
+          </span>
+        )}
 
         {/* Title */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-[68px] font-black text-white leading-none mb-3 uppercase tracking-wide animate-fadeUp animation-delay-100 max-w-[95%] sm:max-w-3xl">
@@ -170,14 +196,17 @@ export const HeroCarousel = () => {
         </h1>
 
         {/* Subtitle */}
-        <p className="text-sm sm:text-base text-white/70 mb-6 sm:mb-8 max-w-md animate-fadeUp animation-delay-200 leading-relaxed">
-          {slide.subtitle}
-        </p>
+        {slide.subtitle && (
+          <p className="text-sm sm:text-base text-white/70 mb-6 sm:mb-8 max-w-md animate-fadeUp animation-delay-200 leading-relaxed">
+            {slide.subtitle}
+          </p>
+        )}
 
-        {/* CTA */}
+        {/* CTA: colored with the slide's accent (works for admin-entered colors) */}
         <Link
           to={slide.link}
-          className={`inline-flex items-center gap-2 text-sm sm:text-base font-semibold px-5 sm:px-6 py-3 rounded-lg text-white w-fit transition-all animate-fadeUp animation-delay-300 ${slide.ctaBg}`}
+          style={{ background: slide.accent, color: '#0b0b0b' }}
+          className="inline-flex items-center gap-2 text-sm sm:text-base font-semibold px-5 sm:px-6 py-3 rounded-lg w-fit transition-all hover:brightness-110 animate-fadeUp animation-delay-300"
         >
           {slide.cta}
 

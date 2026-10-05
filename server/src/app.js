@@ -22,11 +22,13 @@ const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
 const cartRoutes = require('./routes/cartRoutes');
 const orderRoutes = require('./routes/orderRoutes');
+const blogRoutes = require('./routes/blogRoute');
 const reviewRoutes = require('./routes/reviewRoutes');
 const customerRoutes = require('./routes/customerRoutes');
-const uploadRoutes = require('./routes/uploadRoutes');
+const { router: uploadRoutes } = require('./routes/uploadRoutes');
   const categoryRoutes = require('./routes/categoriesRoutes');
-
+  const heroSlideRoutes = require('./routes/heroSlideRoutes');
+  
 const path = require('path');
 // Import middleware
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
@@ -58,6 +60,7 @@ const limiter = rateLimit({
 const allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'http://www.pediwajerser.co.ke',
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
 ];
 
@@ -80,7 +83,11 @@ app.use(cors(corsOptions)); // Cross-origin resource sharing
 app.use(express.json({ limit: '10mb' })); // JSON body parser
 app.use(express.urlencoded({ extended: true, limit: '10mb' })); // URL-encoded body parser
 app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // Security headers
+
   app.use('/api/categories', categoryRoutes);
+  app.use('/api/hero-slides', heroSlideRoutes);
+   app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'))); // File upload routes
+app.use('/api/blogs', blogRoutes); // Blog routes
 
 // Logging middleware
 if (process.env.NODE_ENV !== 'test') {
@@ -140,6 +147,9 @@ app.use('/api/cart', cartRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/customers', customerRoutes);
+app.use('/api/categories', categoryRoutes);
+app.get('/api/swagger', (req, res) => res.json(swaggerSpec)); // Swagger JSON endpoint
+app.use('/api/blogs', blogRoutes); // Blog routes
 
 // 404 handler
 app.use(notFoundHandler);

@@ -10,11 +10,17 @@ import CategoryPage  from './Pages/Categories/CategoryPage';
 import NewSeason     from './Pages/Categories/NewSeason.jsx';
 import CartPage      from './Pages/Cart/CartPage.jsx';
 import CheckoutPage  from './Pages/Checkout/CheckoutPage.jsx';
-import BlogPage      from './Pages/Blog/BlogPage.jsx';
 import AdminDashboard from './Pages/Admin/AdminPage';
 import ProductDetail from './Components/products/ProductDetails.jsx';
 import LoginPage     from './Pages/auth/LoginPage.jsx';
 import Navbar        from './Components/layout/Navbar.jsx';
+import BlogPostPage from './Pages/Blog/blogPostPage.jsx';
+import BlogsPage from './Pages/Blog/BlogPage.jsx';
+import ContactPage from './Pages/support/ContactPage.jsx';
+import TrackOrderPage from './Pages/support/TrackOrderPage.jsx';
+import DeliveryInfoPage from './Pages/support/DeliveryInfoPage.jsx';
+import ReturnsPage from './Pages/support/ReturnPages.jsx';
+import FAQsPage from './Pages/support/FAQsPage.jsx';
 
 // ✅ Separate inner component — lives inside <BrowserRouter>
 const AppLayout = () => {
@@ -32,7 +38,15 @@ const AppLayout = () => {
         <Route path='/product/:id'           element={<ProductDetail />} />
         <Route path='/cart'                  element={<CartPage />} />
         <Route path='/checkout'              element={<CheckoutPage />} />
-        <Route path='/blogs'                 element={<BlogPage />} />
+        <Route path="/blog/:idOrSlug" element={<BlogPostPage />} />
+        <Route path="/blog" element={<BlogsPage />} />
+        <Route path="/track-order" element={<TrackOrderPage />} />
+        <Route path="/delivery" element={<DeliveryInfoPage />} />
+        <Route path="/returns" element={<ReturnsPage />} />
+        <Route path="/faqs" element={<FAQsPage />} />
+        <Route path="/contact" element={<ContactPage />} />
+
+        
         <Route path='/login'                 element={<LoginPage />} />
 
         {/* Admin only */}

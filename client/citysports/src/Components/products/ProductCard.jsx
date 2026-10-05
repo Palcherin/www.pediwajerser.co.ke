@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { FaWhatsapp, FaShoppingCart, FaCheck } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
@@ -16,14 +17,16 @@ const ProductCard = ({ product }) => {
   const [added, setAdded] = useState(false);
 
   // ✅ Use images array, fall back gracefully
-  const firstImage = Array.isArray(product.images) && product.images.length
-    ? getImageUrl(product.images[0])
-    : product.image
-      ? getImageUrl(product.image)
-      : null;
+  const firstImage =
+    Array.isArray(product.images) && product.images.length
+      ? getImageUrl(product.images[0])
+      : product.image
+        ? getImageUrl(product.image)
+        : null;
 
   // ✅ Only calculate discount if oldPrice exists and is greater than price
-  const discount = product.discount ||
+  const discount =
+    product.discount ||
     (product.oldPrice && product.oldPrice > product.price
       ? Math.round(((product.oldPrice - product.price) / product.oldPrice) * 100)
       : 0);
@@ -31,37 +34,46 @@ const ProductCard = ({ product }) => {
   const handleWhatsApp = (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     const msg = encodeURIComponent(
       `Hi! I'm interested in buying *${product.name}* for KSh ${product.price.toLocaleString()}. Is it available?`
     );
-    window.open(`https://wa.me/254743666719?text=${msg}`, '_blank');
+
+    window.open(
+      `https://wa.me/254743666719?text=${msg}`,
+      '_blank'
+    );
   };
 
   const handleBuyNow = (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     addToCart({
-      id:       product.id,
-      name:     product.name,
-      image:    firstImage,
-      images:   product.images || [],
-      price:    product.price,
+      id: product.id,
+      name: product.name,
+      image: firstImage,
+      images: product.images || [],
+      price: product.price,
       quantity: 1,
     });
+
     navigate('/checkout');
   };
 
   const handleAddToCart = (e) => {
     e.preventDefault();
     e.stopPropagation();
+
     addToCart({
-      id:       product.id,
-      name:     product.name,
-      image:    firstImage,
-      images:   product.images || [],
-      price:    product.price,
+      id: product.id,
+      name: product.name,
+      image: firstImage,
+      images: product.images || [],
+      price: product.price,
       quantity: 1,
     });
+
     setAdded(true);
     setTimeout(() => setAdded(false), 2000);
   };
@@ -71,21 +83,22 @@ const ProductCard = ({ product }) => {
       <div className="bg-white rounded-3xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden border border-gray-100 hover:border-gray-200">
 
         {/* Image */}
-        <div className="relative overflow-hidden bg-gray-100">
+        <div className="relative overflow-hidden bg-gray-100 h-72">
           {firstImage ? (
             <img
               src={firstImage}
               alt={product.name}
-              className="w-full h-72 object-cover transition-transform duration-500 group-hover:scale-105"
+              className="w-full h-full object-contain"
               onError={e => {
                 e.target.style.display = 'none';
                 e.target.nextSibling.style.display = 'flex';
               }}
             />
           ) : null}
+
           {/* Fallback placeholder */}
           <div
-            className="w-full h-72 items-center justify-center text-gray-300 text-sm"
+            className="absolute inset-0 items-center justify-center text-gray-300 text-sm"
             style={{ display: firstImage ? 'none' : 'flex' }}
           >
             No image
@@ -108,6 +121,7 @@ const ProductCard = ({ product }) => {
             <span className="text-2xl font-bold text-gray-900">
               KSh {product.price.toLocaleString()}
             </span>
+
             {/* ✅ Only show oldPrice if it exists */}
             {product.oldPrice && product.oldPrice > product.price && (
               <span className="text-lg text-gray-400 line-through">
@@ -134,7 +148,15 @@ const ProductCard = ({ product }) => {
                     : 'border-gray-200 text-gray-600 hover:border-emerald-400 hover:text-emerald-600'
                 }`}
               >
-                {added ? <><FaCheck className="text-sm" /> Added!</> : <><FaShoppingCart className="text-sm" /> Add to Cart</>}
+                {added ? (
+                  <>
+                    <FaCheck className="text-sm" /> Added!
+                  </>
+                ) : (
+                  <>
+                    <FaShoppingCart className="text-sm" /> Add to Cart
+                  </>
+                )}
               </button>
 
               <button

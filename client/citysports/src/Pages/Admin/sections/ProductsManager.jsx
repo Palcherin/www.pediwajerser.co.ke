@@ -14,10 +14,62 @@ const DEFAULT_CATEGORIES = [
   { slug: 'others',       name: 'Others',       description: 'Other sports equipment and accessories',            image: 'https://images.unsplash.com/photo-1526976668912-3f65a7c6c8f3?w=400&q=80' },
 ];
 
+/* ── Size systems ─────────────────────────────────────────────────
+   One config drives the picker, the defaults, and the table display.
+   Add a system here (e.g. kids) and the UI picks it up automatically. */
+const range = (from, to) => Array.from({ length: to - from + 1 }, (_, i) => String(from + i));
+
+const SIZE_SYSTEMS = {
+  clothing: {
+    label: 'Clothing',
+    hint: 'Kits, jerseys and jackets',
+    sizes: ['S', 'M', 'L', 'XL', 'XXL'],
+    presets: [{ label: 'S to XL', sizes: ['S', 'M', 'L', 'XL'] }],
+  },
+  shoes: {
+    label: 'Shoes',
+    hint: 'Boots and trainers, EU sizes',
+    unit: 'EU',
+    sizes: range(31, 47),
+    presets: [
+      { label: 'Adult 39 to 45', sizes: range(39, 45) },
+      { label: 'Kids 36 to 38', sizes: range(31, 38) },
+    ],
+  },
+  none: {
+    label: 'No sizes',
+    hint: 'Bags, balls and accessories',
+    sizes: [],
+    presets: [],
+  },
+};
+
+// Which system a category starts with (admin can still override per product)
+const CATEGORY_SYSTEM = { footwear: 'shoes', backpacks: 'none', others: 'none' };
+const systemForCategory = (slug) => CATEGORY_SYSTEM[slug] ?? 'clothing';
+
+// Work out the system of a saved product from its sizes, no extra DB column needed
+const inferSystem = (sizes, slug) => {
+  if (!sizes?.length) return systemForCategory(slug);
+  return sizes.every((s) => SIZE_SYSTEMS.shoes.sizes.includes(s)) ? 'shoes' : 'clothing';
+};
+
+// "EU 40 to 44", "EU 40, 42", "S, M, L"
+const formatSizes = (sizes = []) => {
+  if (!sizes.length) return '';
+  const nums = sizes.map(Number);
+  if (!nums.every(Number.isFinite)) return sizes.join(', ');
+  const contiguous = nums.every((n, i) => i === 0 || n === nums[i - 1] + 1);
+  return contiguous && nums.length > 2
+    ? `EU ${nums[0]} to ${nums[nums.length - 1]}`
+    : `EU ${sizes.join(', ')}`;
+};
+
 const EMPTY_PRODUCT_FORM = {
   name: '', description: '', price: '', oldPrice: '',
   brand: '', categorySlug: '', stockQuantity: '',
   inStock: true, featured: false,
+  sizeSystem: 'clothing', sizes: [],
 };
 
 const EMPTY_CATEGORY_FORM = { name: '', description: '', image: '' };
@@ -49,6 +101,85 @@ const compressImage = (file, maxSize = 1600, quality = 0.82) =>
     img.onerror = () => resolve(file);
     img.src = url;
   });
+
+/* ── Size picker ──────────────────────────────────────────────────
+   Presentational only: the parent owns the state. */
+const SizePicker = ({ system, sizes, onSystem, onToggle, onSet }) => {
+  const cfg = SIZE_SYSTEMS[system];
+  const linkBtn = 'text-xs hover:underline';
+
+  return (
+    <div className="col-span-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-medium text-gray-700">Sizes</span>
+        <div role="radiogroup" aria-label="Size type" className="flex gap-1 bg-gray-100 p-1 rounded-xl">
+          {Object.entries(SIZE_SYSTEMS).map(([key, s]) => (
+            <button
+              key={key}
+              type="button"
+              role="radio"
+              aria-checked={system === key}
+              onClick={() => onSystem(key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+                system === key ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <p className="mt-2 mb-3 text-xs text-gray-400">{cfg.hint}</p>
+
+      {cfg.sizes.length === 0 ? (
+        <p className="rounded-2xl bg-gray-50 border border-dashed border-gray-200 px-4 py-3 text-sm text-gray-400">
+          Customers won't be asked to choose a size for this product.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-2" role="group" aria-label={`${cfg.label} sizes`}>
+            {cfg.sizes.map((size) => {
+              const on = sizes.includes(size);
+              return (
+                <button
+                  key={size}
+                  type="button"
+                  onClick={() => onToggle(size)}
+                  aria-pressed={on}
+                  className={`min-w-[3rem] rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition-colors ${
+                    on
+                      ? 'border-emerald-600 bg-emerald-600 text-white'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-gray-400'
+                  }`}
+                >
+                  {size}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+            <button type="button" className={`${linkBtn} text-emerald-600`} onClick={() => onSet([...cfg.sizes])}>
+              Select all
+            </button>
+            {cfg.presets.map((p) => (
+              <button key={p.label} type="button" className={`${linkBtn} text-emerald-600`} onClick={() => onSet(p.sizes)}>
+                {p.label}
+              </button>
+            ))}
+            <button type="button" className={`${linkBtn} text-gray-400`} onClick={() => onSet([])}>
+              Clear
+            </button>
+            <span className="ml-auto text-xs text-gray-400">
+              {sizes.length ? `${cfg.unit ? `${cfg.unit} ` : ''}${sizes.join(', ')}` : 'None selected'}
+            </span>
+          </div>
+        </>
+      )}
+    </div>
+  );
+};
 
 const ProductsManager = () => {
   const [activeTab, setActiveTab]             = useState('products');
@@ -102,7 +233,7 @@ const ProductsManager = () => {
   const seedDefaultCategories = async () => {
     setSeeding(true);
     try {
-      const results = await Promise.all(
+      await Promise.all(
         DEFAULT_CATEGORIES.map(cat =>
           authFetch(`${API}/categories`, {
             method: 'POST',
@@ -111,8 +242,7 @@ const ProductsManager = () => {
           }).then(r => r.json())
         )
       );
-      
-      const created = results.map(r => r.data || r.success && r).filter(Boolean);
+
       const res  = await authFetch(`${API}/categories`);
       const data = await res.json();
       setCategories(data.data?.length > 0 ? data.data : DEFAULT_CATEGORIES);
@@ -124,9 +254,38 @@ const ProductsManager = () => {
     }
   };
 
+  // ── Size handlers ────────────────────────────────────────────────
+  // Picking a category suggests the matching size system; sizes reset only if the system changes
+  const changeCategory = (slug) =>
+    setProductForm((f) => {
+      const system = systemForCategory(slug);
+      return {
+        ...f,
+        categorySlug: slug,
+        sizeSystem: system,
+        sizes: system === f.sizeSystem ? f.sizes : [],
+      };
+    });
+
+  const changeSizeSystem = (system) =>
+    setProductForm((f) => ({
+      ...f,
+      sizeSystem: system,
+      sizes: system === f.sizeSystem ? f.sizes : [],
+    }));
+
+  const setSizes = (sizes) => setProductForm((f) => ({ ...f, sizes }));
+
+  const toggleSize = (size) =>
+    setProductForm((f) => {
+      const order = SIZE_SYSTEMS[f.sizeSystem].sizes;
+      const next = f.sizes.includes(size) ? f.sizes.filter((s) => s !== size) : [...f.sizes, size];
+      return { ...f, sizes: next.sort((a, b) => order.indexOf(a) - order.indexOf(b)) };
+    });
+
   // ── Product handlers ─────────────────────────────────────────────
 
-  // ✅ Accumulate files one-by-one instead of replacing
+  // Accumulate files one-by-one instead of replacing
   const handleImageSelect = async (e) => {
     const picked = Array.from(e.target.files);
     e.target.value = '';
@@ -135,7 +294,7 @@ const ProductsManager = () => {
     setImagePreviews((prev) => [...prev, ...compressed.map((f) => URL.createObjectURL(f))]);
   };
 
-  // ✅ Remove a single image from the selection
+  // Remove a single image from the selection
   const removeImagePreview = (index) => {
     setImageFiles(prev => prev.filter((_, i) => i !== index));
     setImagePreviews(prev => prev.filter((_, i) => i !== index));
@@ -162,6 +321,7 @@ const ProductsManager = () => {
     fd.append('stockQuantity', productForm.stockQuantity || '0');
     fd.append('inStock', productForm.inStock ? 'true' : 'false');
     fd.append('featured', productForm.featured ? 'true' : 'false');
+    fd.append('sizes', JSON.stringify(productForm.sizes));
 
     imageFiles.forEach(file => fd.append('images', file));
 
@@ -200,11 +360,14 @@ const ProductsManager = () => {
   };
 
   const handleEditProduct = (p) => {
+    const sizes = Array.isArray(p.sizes) ? p.sizes : [];
     setProductForm({
       name: p.name, description: p.description || '',
       price: p.price, oldPrice: p.oldPrice || '',
       brand: p.brand || '', categorySlug: p.categorySlug || '',
       stockQuantity: p.stockQuantity, inStock: p.inStock, featured: p.featured || false,
+      sizeSystem: inferSystem(sizes, p.categorySlug),
+      sizes,
     });
     setImagePreviews(p.images?.map(imgUrl) || []);
     setImageFiles([]);
@@ -369,7 +532,7 @@ const ProductsManager = () => {
                         </div>
                       ) : (
                         <select value={productForm.categorySlug} required
-                          onChange={e => setProductForm(f => ({ ...f, categorySlug: e.target.value }))}
+                          onChange={e => changeCategory(e.target.value)}
                           className={inp}>
                           <option value="">Select category...</option>
                           {categories.map(cat => (
@@ -378,6 +541,14 @@ const ProductsManager = () => {
                         </select>
                       )}
                     </div>
+
+                    <SizePicker
+                      system={productForm.sizeSystem}
+                      sizes={productForm.sizes}
+                      onSystem={changeSizeSystem}
+                      onToggle={toggleSize}
+                      onSet={setSizes}
+                    />
 
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -394,7 +565,7 @@ const ProductsManager = () => {
                         className="w-full border border-gray-200 rounded-2xl px-4 py-3 text-sm file:mr-4 file:py-1.5 file:px-4 file:rounded-xl file:border-0 file:bg-emerald-50 file:text-emerald-700 file:text-xs"
                       />
 
-                      {/* ✅ Previews with individual remove buttons */}
+                      {/* Previews with individual remove buttons */}
                       {imagePreviews.length > 0 && (
                         <div className="flex gap-3 mt-3 flex-wrap">
                           {imagePreviews.map((src, i) => (
@@ -473,6 +644,9 @@ const ProductsManager = () => {
                           <div>
                             <p className="font-semibold text-gray-900 line-clamp-1">{p.name}</p>
                             {p.featured && <span className="text-xs text-emerald-600 font-medium">Featured</span>}
+                            {Array.isArray(p.sizes) && p.sizes.length > 0 && (
+                              <p className="text-xs text-gray-400 mt-0.5">{formatSizes(p.sizes)}</p>
+                            )}
                           </div>
                         </div>
                       </td>

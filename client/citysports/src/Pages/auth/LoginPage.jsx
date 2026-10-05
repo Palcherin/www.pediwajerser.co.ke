@@ -10,54 +10,46 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setError('');
+  setLoading(true);
 
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: form.email.trim(),
-          password: form.password,
-        }),
-      });
+  try {
+    const response = await fetch(`${API_URL}/api/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email: form.email.trim(),
+        password: form.password,
+      }),
+    });
 
-      const data = await response.json();
+    const data = await response.json();
 
-      console.log('Login Response:', data); // Helpful for debugging
-
-      if (!response.ok) {
-        setError(data.message || 'Invalid email or password');
-        return;
-      }
-
-      // Backend returns { success, message, token, user }.
-      // Also accept { data: { token, user } } in case the shape changes.
-      const user = data.user ?? data.data?.user;
-      const token = data.token ?? data.data?.token;
-
-      if (data.success && user && token) {
-        login(user, token);
-
-        const role = String(user.role || '').toLowerCase();
-        console.log('User role:', role);
-
-        navigate(role === 'admin' ? '/admin' : '/dashboard');
-      } else {
-        setError('Invalid response from server');
-      }
-    } catch (err) {
-      console.error('Login Error:', err);
-      setError('Cannot connect to server. Make sure backend is running.');
-    } finally {
-      setLoading(false);
+    if (!response.ok) {
+      setError(data.message || 'Invalid email or password');
+      return;
     }
-  };
+
+    const user = data.user ?? data.data?.user;
+    const token = data.token ?? data.data?.token;
+
+    if (!(data.success && user && token)) {
+      setError('Invalid response from server');
+      return;
+    }
+
+    login(user, token);
+    const role = String(user.role || '').toLowerCase();
+    navigate(role === 'admin' ? '/admin' : '/');
+  } catch (err) {
+    setError('Cannot connect to server. Please try again.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
