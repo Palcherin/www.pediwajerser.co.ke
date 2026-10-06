@@ -60,6 +60,8 @@ const limiter = rateLimit({
 const allowedOrigins = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
+    'https://www.pediwajerser.co.ke',
+    'https://pediwajerser.co.ke',
     'http://www.pediwajerser.co.ke',
     ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
 ];
