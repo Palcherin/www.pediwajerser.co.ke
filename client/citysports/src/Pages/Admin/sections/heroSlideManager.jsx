@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
+import { apiFetch } from '../../../Pages/api'; // adjust the path to where api.js lives relative to this file
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const imgUrl = (p) => (p && p.startsWith('/uploads') ? `${API}${p}` : p);
-const authHeader = () => ({ Authorization: `Bearer ${localStorage.getItem('token')}` });
 
 const EMPTY = {
   tag: '', title: '', subtitle: '', cta: 'Shop Now', link: '/',
@@ -18,11 +18,18 @@ const HeroSlidesAdmin = () => {
   const [file, setFile] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [listError, setListError] = useState('');
 
   const load = async () => {
-    const res = await fetch(`${API}/api/hero-slides/all`, { headers: authHeader() });
-    const data = await res.json();
-    if (data.success) setSlides(data.slides);
+    try {
+      const res = await apiFetch('/api/hero-slides/all');
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.message || `Load failed (${res.status})`);
+      setSlides(data.slides);
+      setListError('');
+    } catch (err) {
+      setListError(err.message);
+    }
   };
   useEffect(() => { load(); }, []);
 
@@ -47,15 +54,14 @@ const HeroSlidesAdmin = () => {
     if (!editingId && !file) return setError('Please choose an image');
     if (!form.title.trim()) return setError('Title is required');
 
-    const body = new FormData();                      // no Content-Type header: the browser sets it
+    const body = new FormData(); // no Content-Type header: the browser sets the multipart boundary
     Object.entries(form).forEach(([k, v]) => body.append(k, v));
     if (file) body.append('image', file);
 
     setBusy(true);
     try {
-      const res = await fetch(`${API}/api/hero-slides${editingId ? `/${editingId}` : ''}`, {
+      const res = await apiFetch(`/api/hero-slides${editingId ? `/${editingId}` : ''}`, {
         method: editingId ? 'PUT' : 'POST',
-        headers: authHeader(),
         body,
       });
       const data = await res.json();
@@ -72,15 +78,25 @@ const HeroSlidesAdmin = () => {
   const toggleActive = async (s) => {
     const body = new FormData();
     body.append('is_active', !s.is_active);
-    await fetch(`${API}/api/hero-slides/${s.id}`, { method: 'PUT', headers: authHeader(), body });
-    load();
+    try {
+      const res = await apiFetch(`/api/hero-slides/${s.id}`, { method: 'PUT', body });
+      if (!res.ok) throw new Error('Update failed');
+      load();
+    } catch (err) {
+      setListError(err.message);
+    }
   };
 
   const remove = async (id) => {
     if (!window.confirm('Delete this slide?')) return;
-    await fetch(`${API}/api/hero-slides/${id}`, { method: 'DELETE', headers: authHeader() });
-    if (editingId === id) reset();
-    load();
+    try {
+      const res = await apiFetch(`/api/hero-slides/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Delete failed');
+      if (editingId === id) reset();
+      load();
+    } catch (err) {
+      setListError(err.message);
+    }
   };
 
   return (
@@ -134,6 +150,9 @@ const HeroSlidesAdmin = () => {
 
       {/* List */}
       <div className="space-y-3">
+        {listError && (
+          <div className="bg-red-50 border border-red-200 text-red-600 text-sm p-3 rounded-xl">{listError}</div>
+        )}
         {slides.map(s => (
           <div key={s.id} className={`bg-white border border-gray-100 rounded-2xl p-4 flex gap-4 items-center ${!s.is_active ? 'opacity-50' : ''}`}>
             <img src={imgUrl(s.image)} alt="" className="w-28 h-16 object-cover rounded-xl bg-gray-100 flex-shrink-0" />
@@ -148,7 +167,7 @@ const HeroSlidesAdmin = () => {
             <button onClick={() => remove(s.id)} className="text-sm text-red-400 hover:text-red-600">Delete</button>
           </div>
         ))}
-        {!slides.length && (
+        {!slides.length && !listError && (
           <p className="text-sm text-gray-400">No slides yet. The homepage is showing the built-in default slides.</p>
         )}
       </div>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { FaShoppingCart, FaBars, FaTimes } from 'react-icons/fa';
 import { FiSearch } from 'react-icons/fi';
@@ -6,19 +6,56 @@ import { useCart } from '../../context/CartContext';
 import useCustomerTracker from '../../hooks/useCustomerTracker';
 import logo from '../../assets/final5-removebg-preview.png';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
- 
+// Shown immediately and kept as a fallback if the categories fetch fails,
+// so the navbar is never empty or broken for a visitor.
+const FALLBACK_CATEGORIES = [
+  { name: 'New Season', slug: 'new-season' },
+  { name: 'National Teams', slug: 'national-teams' },
+  { name: 'Retro Kits', slug: 'retro-kits' },
+  { name: 'Footwear', slug: 'footwear' },
+  { name: 'Others', slug: 'others' },
+];
 
 const Navbar = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES);
   const navigate = useNavigate();
-   useCustomerTracker(); // Track customer visits
-  
+  useCustomerTracker(); // Track customer visits
+
   const { cartCount } = useCart();
 
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
+
+  // Pull live categories from the database instead of hardcoding the list.
+  // ⚠️ Adjust the endpoint/field names (`name`, `slug`) if your categories
+  // API shapes them differently (e.g. `title`, `id`, `is_active`).
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCategories = async () => {
+      try {
+        const res = await fetch(`${API}/api/categories`);
+        const data = await res.json();
+        const list = Array.isArray(data) ? data : data.categories;
+        if (!cancelled && Array.isArray(list) && list.length) {
+          setCategories(
+            list
+              .filter((c) => c.is_active !== false) // keep hidden categories out of the navbar
+              .map((c) => ({ name: c.name, slug: c.slug }))
+          );
+        }
+      } catch {
+        // Keep FALLBACK_CATEGORIES on failure — fail quiet, don't break the navbar.
+      }
+    };
+
+    loadCategories();
+    return () => { cancelled = true; };
+  }, []);
 
   // Connect Search to Backend
   const handleSearch = (e) => {
@@ -45,11 +82,15 @@ const Navbar = () => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-8 font-medium text-gray-700">
             <Link to="/" className="hover:text-emerald-600 transition-colors">Home</Link>
-            <Link to="/category/new-season" className="hover:text-emerald-600 transition-colors">New Season</Link>
-             <Link to="/category/national-teams" className="hover:text-emerald-600 transition-colors">National Teams</Link>
-            <Link to="/category/retro-kits" className="hover:text-emerald-600 transition-colors">Retro Kits</Link>
-            <Link to="/category/footwear" className="hover:text-emerald-600 transition-colors">Footwear</Link>
-            <Link to="/category/others" className="hover:text-emerald-600 transition-colors">Others</Link>
+            {categories.map((cat) => (
+              <Link
+                key={cat.slug}
+                to={`/category/${cat.slug}`}
+                className="hover:text-emerald-600 transition-colors"
+              >
+                {cat.name}
+              </Link>
+            ))}
             <Link to="/blog" className="hover:text-emerald-600 transition-colors">Blog</Link>
           </div>
 
@@ -108,11 +149,11 @@ const Navbar = () => {
           <div className="md:hidden mt-6 py-6 border-t border-gray-200 bg-white">
             <div className="flex flex-col gap-6 text-lg font-medium text-gray-700 px-2">
               <Link to="/" onClick={closeMobileMenu}>Home</Link>
-              <Link to="/category/new-season" onClick={closeMobileMenu}>New Season</Link>
-              <Link to="/category/national-teams" onClick={closeMobileMenu}>National Teams</Link>
-              <Link to="/category/retro-kits" onClick={closeMobileMenu}>Retro Kits</Link>
-              <Link to="/category/footwear" onClick={closeMobileMenu}>Footwear</Link>
-              <Link to="/category/backpacks" onClick={closeMobileMenu}>Backpacks</Link>
+              {categories.map((cat) => (
+                <Link key={cat.slug} to={`/category/${cat.slug}`} onClick={closeMobileMenu}>
+                  {cat.name}
+                </Link>
+              ))}
               <Link to="/blog" onClick={closeMobileMenu}>Blog</Link>
             </div>
           </div>

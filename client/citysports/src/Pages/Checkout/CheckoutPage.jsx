@@ -3,39 +3,50 @@ import { useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { FaShieldAlt, FaTruck, FaWhatsapp, FaCheck, FaChevronDown, FaMapMarkerAlt, FaMoneyBillWave, FaMobileAlt } from 'react-icons/fa';
 
+// fee    = delivery fee when paying by M-Pesa (paid upfront)
+// codFee = delivery fee when paying cash on delivery (null = COD not available in this zone)
+// ⚠️ The codFee values below are placeholders. Edit them to your real pay-on-delivery rates.
 const DELIVERY_ZONES = {
   'Nairobi CBD & Surrounds': {
-    fee: 150, nearNairobi: true,
+    fee: 150, codFee: 200, nearNairobi: true,
     areas: ['CBD', 'Westlands', 'Parklands', 'Ngara', 'Pangani', 'Eastleigh', 'Ngong Road'],
   },
   'Nairobi Suburbs': {
-    fee: 200, nearNairobi: true,
+    fee: 350, codFee: 400, nearNairobi: true,
     areas: ['Kilimani', 'Lavington', 'Karen', 'Langata', 'South C', 'South B', 'Upperhill', 'Hurlingham'],
   },
   'Nairobi Outskirts': {
-    fee: 250, nearNairobi: true,
+    fee: 250, codFee: 300, nearNairobi: true,
     areas: ['Kasarani', 'Ruaka', 'Ruiru', 'Kikuyu', 'Rongai', 'Kitengela', 'Embakasi', 'Utawala', 'Syokimau'],
   },
   'Mombasa': {
-    fee: 400, nearNairobi: false,
+    fee: 400, codFee: null, nearNairobi: false,
     areas: ['Mombasa Island', 'Nyali', 'Bamburi', 'Likoni', 'Mtwapa'],
   },
   'Kisumu': {
-    fee: 400, nearNairobi: false,
+    fee: 400, codFee: null, nearNairobi: false,
     areas: ['Kisumu CBD', 'Milimani', 'Kondele', 'Mamboleo'],
   },
   'Nakuru': {
-    fee: 350, nearNairobi: false,
+    fee: 350, codFee: null, nearNairobi: false,
     areas: ['Nakuru CBD', 'Milimani', 'Section 58', 'Lanet'],
   },
   'Eldoret': {
-    fee: 350, nearNairobi: false,
+    fee: 350, codFee: null, nearNairobi: false,
     areas: ['Eldoret CBD', 'Langas', 'Pioneer', 'Huruma'],
   },
   'Thika': {
-    fee: 300, nearNairobi: true,
+    fee: 300, codFee: 350, nearNairobi: true,
     areas: ['Thika CBD', 'Makongeni', 'Ngoigwa'],
   },
+};
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+// Delivery fee for a zone depending on the payment method
+const feeFor = (zoneData, payment) => {
+  if (!zoneData) return 0;
+  if (payment === 'cash' && zoneData.codFee != null) return zoneData.codFee;
+  return zoneData.fee;
 };
 
 const PAYMENT_OPTIONS = [
@@ -68,11 +79,12 @@ const CheckoutPage = () => {
   const [loading, setLoading] = useState(false);
 
   const selectedZoneData = DELIVERY_ZONES[form.zone];
-  const deliveryFee      = selectedZoneData?.fee || 0;
   const isNairobi        = selectedZoneData?.nearNairobi ?? true;
+  const deliveryFee      = feeFor(selectedZoneData, form.payment);
+  const isCod            = form.payment === 'cash' && selectedZoneData?.codFee != null;
 
-  // ✅ Compute subtotal directly from cart — avoids context sync issues
-  const subtotal  = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
+  // Compute subtotal directly from cart to avoid context sync issues
+  const subtotal   = cart.reduce((sum, item) => sum + (Number(item.price) || 0) * (Number(item.quantity) || 1), 0);
   const grandTotal = subtotal + deliveryFee;
 
   const handleChange = (field, value) => {
@@ -102,7 +114,7 @@ const CheckoutPage = () => {
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:5000/api/orders', {
+      const res = await fetch(`${API}/api/orders`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -112,6 +124,7 @@ const CheckoutPage = () => {
           houseNumber:   form.houseNumber,
           deliveryNotes: form.notes || '',
           paymentMethod: form.payment === 'mpesa' ? 'MPESA' : 'CASH_ON_DELIVERY',
+          deliveryFee,
           totalAmount:   grandTotal,
           orderItems: cart.map(item => ({
             productId: item.productId || item.id,
@@ -238,9 +251,11 @@ const CheckoutPage = () => {
                     className={selectCls(errors.zone)}
                   >
                     <option value="">Select zone...</option>
-                    {Object.entries(DELIVERY_ZONES).map(([zone, { fee }]) => (
+                    {Object.entries(DELIVERY_ZONES).map(([zone, z]) => (
                       <option key={zone} value={zone}>
-                        {zone} — KSh {fee}
+                        {z.codFee != null
+                          ? `${zone} — M-Pesa KSh ${z.fee} · COD KSh ${z.codFee}`
+                          : `${zone} — KSh ${z.fee}`}
                       </option>
                     ))}
                   </select>
@@ -272,7 +287,7 @@ const CheckoutPage = () => {
               <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-2.5 text-sm">
                 <FaTruck className="text-emerald-600 flex-shrink-0" />
                 <span className="text-emerald-800">
-                  Delivery to <span className="font-semibold">{form.zone}</span>:{' '}
+                  {isCod ? 'Cash on delivery' : 'Delivery'} to <span className="font-semibold">{form.zone}</span>:{' '}
                   <span className="font-bold">KSh {deliveryFee.toLocaleString()}</span>
                 </span>
                 {!isNairobi && (
@@ -326,6 +341,7 @@ const CheckoutPage = () => {
                 const isDisabled = opt.nairobiOnly && !isNairobi;
                 const isSelected = form.payment === opt.value;
                 const Icon       = opt.icon;
+                const optFee     = form.zone && !isDisabled ? feeFor(selectedZoneData, opt.value) : null;
 
                 return (
                   <label
@@ -355,6 +371,11 @@ const CheckoutPage = () => {
                     <div>
                       <p className="font-semibold text-gray-800 text-sm">{opt.label}</p>
                       <p className="text-gray-400 text-xs mt-0.5">{opt.sub}</p>
+                      {optFee !== null && (
+                        <p className="text-emerald-700 text-xs font-semibold mt-1">
+                          Delivery: KSh {optFee.toLocaleString()}
+                        </p>
+                      )}
                     </div>
                     {isDisabled && (
                       <span className="absolute top-2 right-3 text-xs text-gray-400 font-medium">
@@ -455,7 +476,7 @@ const CheckoutPage = () => {
                   Delivery
                   {form.zone && (
                     <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
-                      {form.zone}
+                      {form.zone}{isCod ? ' · COD' : ''}
                     </span>
                   )}
                 </span>
@@ -480,11 +501,17 @@ const CheckoutPage = () => {
 
           {/* Delivery fee reference */}
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
-              Delivery Fees
-            </p>
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                Delivery Fees
+              </p>
+              <div className="flex gap-6 text-xs font-semibold text-gray-400 uppercase tracking-wider">
+                <span>M-Pesa</span>
+                <span>COD</span>
+              </div>
+            </div>
             <div className="space-y-1.5">
-              {Object.entries(DELIVERY_ZONES).map(([zone, { fee, nearNairobi }]) => (
+              {Object.entries(DELIVERY_ZONES).map(([zone, { fee, codFee }]) => (
                 <div
                   key={zone}
                   className={`flex justify-between items-center text-sm rounded-xl px-3 py-2 transition-colors ${
@@ -493,15 +520,13 @@ const CheckoutPage = () => {
                       : 'text-gray-500'
                   }`}
                 >
-                  <span className="flex items-center gap-2">
-                    {zone}
-                    {!nearNairobi && (
-                      <span className="text-xs bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded-full font-medium">
-                        M-Pesa
-                      </span>
-                    )}
+                  <span>{zone}</span>
+                  <span className="flex gap-5 font-medium tabular-nums">
+                    <span>KSh {fee}</span>
+                    <span className={codFee == null ? 'text-gray-300' : ''}>
+                      {codFee == null ? 'N/A' : `KSh ${codFee}`}
+                    </span>
                   </span>
-                  <span className="font-medium">KSh {fee}</span>
                 </div>
               ))}
             </div>

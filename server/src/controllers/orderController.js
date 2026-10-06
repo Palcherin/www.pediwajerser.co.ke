@@ -10,8 +10,8 @@ const { validationResult } = require('express-validator');
 const { Order, OrderItem, Product, User } = require('../models');
 const { ApiError } = require('../middleware/errorHandler');
 const { sequelize } = require('../config/database');
-
-const DELIVERY_FEE = 150; // later: look up by location
+const { getDeliveryFee } = require('../config/deliveryZones');
+const { notifyNewOrder } = require('../service/notification');
 
 const generateOrderNumber = () => {
     const timestamp = Date.now();
@@ -44,6 +44,16 @@ const createOrder = async (req, res, next) => {
             customerName, phone, location, houseNumber,
             deliveryNotes, paymentMethod, orderItems
         } = req.body;
+
+        // Delivery fee is decided by the server from zone + payment method,
+        // never trusted from the browser
+        let deliveryFee;
+        try {
+            ({ fee: deliveryFee } = getDeliveryFee(location, paymentMethod));
+        } catch (feeErr) {
+            if (!feeErr.code) throw feeErr; // a real bug, not a customer error
+            throw new ApiError(400, feeErr.message, feeErr.code);
+        }
 
         // Lock product rows so two simultaneous orders can't oversell the last kit
         const productIds = [...new Set(orderItems.map(i => Number(i.productId)))];
@@ -95,8 +105,8 @@ const createOrder = async (req, res, next) => {
             shipping_city: location,
             payment_method: paymentMethod,
             notes: deliveryNotes || null,
-            delivery_fee: DELIVERY_FEE,
-            total_amount: subtotal + DELIVERY_FEE,
+            delivery_fee: deliveryFee,
+            total_amount: subtotal + deliveryFee,
             payment_status: 'pending',
             order_status: 'pending'
         }, { transaction });
@@ -112,6 +122,30 @@ const createOrder = async (req, res, next) => {
 
         await transaction.commit();
 
+        // Email + WhatsApp the shop owner. Not awaited, and failures are only
+        // logged, so a notification problem can never fail the customer's order.
+        notifyNewOrder(
+            {
+                id: order.id,
+                orderNumber: order.order_number,
+                customerName,
+                phone: normalizePhone(phone),
+                location,
+                houseNumber,
+                deliveryNotes,
+                paymentMethod,
+                deliveryFee,
+                totalAmount: subtotal + deliveryFee
+            },
+            lines.map(l => ({
+                name: l.product_name,
+                size: l.size,
+                printing: l.printing,
+                quantity: l.quantity,
+                price: l.product_price
+            }))
+        ).catch(err => console.error('[notify] unexpected error:', err.message));
+
         const completeOrder = await Order.findByPk(order.id, {
             include: [{ model: OrderItem, as: 'items' }]
         });
@@ -123,6 +157,63 @@ const createOrder = async (req, res, next) => {
         });
     } catch (error) {
         await transaction.rollback();
+        next(error);
+    }
+};
+
+/**
+ * Get all orders (admin only)
+ * Supports pagination and optional filtering by order/payment status
+ * or a search term matched against order number, customer name or phone.
+ */
+const getAllOrders = async (req, res, next) => {
+    try {
+        const {
+            limit = 20,
+            offset = 0,
+            status,
+            payment_status,
+            search
+        } = req.query;
+
+        const where = {};
+        if (status) where.order_status = status;
+        if (payment_status) where.payment_status = payment_status;
+
+        if (search) {
+            const { Op } = require('sequelize');
+            where[Op.or] = [
+                { order_number: { [Op.iLike]: `%${search}%` } },
+                { customer_name: { [Op.iLike]: `%${search}%` } },
+                { customer_phone: { [Op.iLike]: `%${search}%` } }
+            ];
+        }
+
+        const { count, rows } = await Order.findAndCountAll({
+            where,
+            include: [
+                { model: OrderItem, as: 'items' },
+                {
+                    model: User,
+                    as: 'user', // must match Order.belongsTo(User, { as: 'user' })
+                    attributes: ['id', 'first_name', 'last_name', 'email', 'phone'],
+                    required: false // orders can belong to a guest (user_id: null)
+                }
+            ],
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            order: [['created_at', 'DESC']],
+            distinct: true // keeps `count` correct when joining the items table
+        });
+
+        res.json({
+            success: true,
+            total: count,
+            limit: parseInt(limit),
+            offset: parseInt(offset),
+            orders: rows
+        });
+    } catch (error) {
         next(error);
     }
 };
@@ -169,6 +260,7 @@ const getOrderById = async (req, res, next) => {
                 { model: OrderItem, as: 'items' },
                 {
                     model: User,
+                    as: 'user', // must match Order.belongsTo(User, { as: 'user' })
                     attributes: ['id', 'first_name', 'last_name', 'email', 'phone']
                 }
             ]
@@ -242,6 +334,61 @@ const updatePaymentStatus = async (req, res, next) => {
             success: true,
             message: 'Payment status updated successfully',
             order
+        });
+    } catch (error) {
+        next(error);
+    }
+};
+
+/**
+ * Track an order by order number + phone (public, rate-limited)
+ */
+const trackOrder = async (req, res, next) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Enter your order number and the phone number used at checkout.'
+            });
+        }
+
+        const orderNumber = String(req.body.orderNumber).trim().toUpperCase();
+        const phone = normalizePhone(req.body.phone);
+
+        const order = await Order.findOne({
+            where: { order_number: orderNumber, customer_phone: phone },
+            include: [{ model: OrderItem, as: 'items' }]
+        });
+
+        // Same message for a wrong number or wrong phone, so nobody can probe for valid orders
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'We could not find an order with those details. Check the order number and phone number.'
+            });
+        }
+
+        res.json({
+            success: true,
+            order: {
+                orderNumber: order.order_number,
+                status: order.order_status,
+                paymentStatus: order.payment_status,
+                paymentMethod: order.payment_method,
+                trackingNumber: order.tracking_number,
+                city: order.shipping_city,
+                createdAt: order.created_at,
+                deliveryFee: Number(order.delivery_fee || 0),
+                total: Number(order.total_amount),
+                items: order.items.map((i) => ({
+                    name: i.product_name,
+                    quantity: i.quantity,
+                    size: i.size,
+                    printing: i.printing,
+                    total: Number(i.total_price)
+                }))
+            }
         });
     } catch (error) {
         next(error);
@@ -330,10 +477,12 @@ const cancelOrder = async (req, res, next) => {
 
 module.exports = {
     createOrder,
+    getAllOrders,
     getMyOrders,
     getOrderById,
     updateOrderStatus,
     updatePaymentStatus,
     updateTracking,
-    cancelOrder
+    cancelOrder,
+    trackOrder
 };

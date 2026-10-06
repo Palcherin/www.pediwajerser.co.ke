@@ -7,9 +7,12 @@
 const express = require('express');
 const router = express.Router();
 const { body } = require('express-validator');
+const rateLimit = require('express-rate-limit');
 const { 
+    trackOrder,
     createOrder, 
     getMyOrders, 
+    getAllOrders,
     getOrderById, 
     updateOrderStatus,
     updatePaymentStatus,
@@ -52,6 +55,19 @@ console.log({
     createOrderValidation: typeof createOrderValidation,
     createOrder: typeof createOrder
 });
+
+const trackLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { success: false, message: 'Too many attempts. Please wait a few minutes and try again.' }
+});
+
+const trackValidation = [
+    body('orderNumber').trim().notEmpty(),
+    body('phone').trim().matches(/^(?:\+?254|0)[17]\d{8}$/)
+];
 /**
  * @swagger
  * tags:
@@ -411,5 +427,7 @@ router.put('/:id/tracking', authenticate, authorizeAdmin, updateTracking);
  *         $ref: '#/components/responses/NotFoundError'
  */
 router.put('/:id/cancel', authenticate, cancelOrder);
+router.post('/track', trackLimiter, trackValidation, trackOrder);
+router.get('/', authenticate, authorizeAdmin, getAllOrders);
 
 module.exports = router;

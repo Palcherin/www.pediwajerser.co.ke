@@ -1,38 +1,40 @@
 import React, { useState, useEffect } from 'react';
 
-const API = 'http://localhost:5000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 const token = () => localStorage.getItem('token');
 
 const STATUS_COLORS = {
-  PENDING:    'bg-yellow-100 text-yellow-700',
-  CONFIRMED:  'bg-blue-100 text-blue-700',
-  PROCESSING: 'bg-purple-100 text-purple-700',
-  SHIPPED:    'bg-indigo-100 text-indigo-700',
-  DELIVERED:  'bg-emerald-100 text-emerald-700',
-  CANCELLED:  'bg-red-100 text-red-600',
+  pending:    'bg-yellow-100 text-yellow-700',
+  processing: 'bg-purple-100 text-purple-700',
+  shipped:    'bg-indigo-100 text-indigo-700',
+  delivered:  'bg-emerald-100 text-emerald-700',
+  cancelled:  'bg-red-100 text-red-600',
 };
 
 const OrdersManager = () => {
-  const [orders, setOrders]       = useState([]);
-  const [selected, setSelected]   = useState(null);
+  const [orders, setOrders]   = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [error, setError]     = useState('');
 
   useEffect(() => { fetchOrders(); }, []);
 
-const fetchOrders = async () => {
-  try {
-    const res = await fetch(`${API}/orders`, {
-      headers: { Authorization: `Bearer ${token()}` },
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
-    setOrders(data.data || []);
-  } catch (err) {
-    console.error('Failed to fetch orders:', err);
-  }
-};
+  const fetchOrders = async () => {
+    try {
+      setError('');
+      const res = await fetch(`${API}/api/orders`, {
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      setOrders(data.orders || []);
+    } catch (err) {
+      console.error('Failed to fetch orders:', err);
+      setError('Could not load orders. Check that you are logged in and the server is running.');
+    }
+  };
 
   const updateStatus = async (id, status) => {
-    await fetch(`${API}/orders/${id}/status`, {
+    await fetch(`${API}/api/orders/${id}/status`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -50,6 +52,12 @@ const fetchOrders = async () => {
         <p className="text-gray-400 text-sm mt-1">{orders.length} total orders</p>
       </div>
 
+      {error && (
+        <div className="mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-2.5">
+          {error}
+        </div>
+      )}
+
       <div className="bg-white rounded-3xl border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
@@ -66,21 +74,21 @@ const fetchOrders = async () => {
           <tbody className="divide-y divide-gray-50">
             {orders.map(order => (
               <tr key={order.id} className="hover:bg-gray-50 transition">
-                <td className="px-6 py-4 font-mono text-xs text-gray-500">{order.orderNumber}</td>
+                <td className="px-6 py-4 font-mono text-xs text-gray-500">{order.order_number}</td>
                 <td className="px-6 py-4">
-                  <p className="font-semibold text-gray-900">{order.customerName}</p>
-                  <p className="text-gray-400 text-xs">{order.phone}</p>
+                  <p className="font-semibold text-gray-900">{order.customer_name}</p>
+                  <p className="text-gray-400 text-xs">{order.customer_phone}</p>
                 </td>
-                <td className="px-6 py-4 text-gray-500 text-xs">{order.location}</td>
+                <td className="px-6 py-4 text-gray-500 text-xs">{order.shipping_city}</td>
                 <td className="px-6 py-4 font-semibold text-gray-900">
-                  KSh {order.totalAmount?.toLocaleString()}
+                  KSh {Number(order.total_amount || 0).toLocaleString()}
                 </td>
-                <td className="px-6 py-4 text-gray-500 text-xs">{order.paymentMethod}</td>
+                <td className="px-6 py-4 text-gray-500 text-xs">{order.payment_method}</td>
                 <td className="px-6 py-4">
                   <select
-                    value={order.status}
+                    value={order.order_status}
                     onChange={e => updateStatus(order.id, e.target.value)}
-                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border-0 cursor-pointer ${STATUS_COLORS[order.status]}`}
+                    className={`text-xs font-semibold px-3 py-1.5 rounded-full border-0 cursor-pointer ${STATUS_COLORS[order.order_status] || 'bg-gray-100 text-gray-600'}`}
                   >
                     {Object.keys(STATUS_COLORS).map(s => (
                       <option key={s} value={s}>{s}</option>
@@ -95,6 +103,13 @@ const fetchOrders = async () => {
                 </td>
               </tr>
             ))}
+            {!orders.length && !error && (
+              <tr>
+                <td colSpan={7} className="px-6 py-10 text-center text-gray-400 text-sm">
+                  No orders yet.
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -106,31 +121,38 @@ const fetchOrders = async () => {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-xl font-bold text-gray-900">Order Details</h3>
-                <p className="text-xs text-gray-400 font-mono mt-1">{selected.orderNumber}</p>
+                <p className="text-xs text-gray-400 font-mono mt-1">{selected.order_number}</p>
               </div>
               <button onClick={() => setSelected(null)} className="text-gray-400 hover:text-gray-600 text-xl">✕</button>
             </div>
 
             <div className="space-y-4 text-sm">
               <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
-                <p><span className="text-gray-500">Name:</span> <span className="font-semibold">{selected.customerName}</span></p>
-                <p><span className="text-gray-500">Phone:</span> {selected.phone}</p>
-                <p><span className="text-gray-500">Location:</span> {selected.location}, {selected.houseNumber}</p>
-                {selected.deliveryNotes && <p><span className="text-gray-500">Notes:</span> {selected.deliveryNotes}</p>}
-                <p><span className="text-gray-500">Payment:</span> {selected.paymentMethod}</p>
+                <p><span className="text-gray-500">Name:</span> <span className="font-semibold">{selected.customer_name}</span></p>
+                <p><span className="text-gray-500">Phone:</span> {selected.customer_phone}</p>
+                <p><span className="text-gray-500">Location:</span> {selected.shipping_city}, {selected.shipping_address}</p>
+                {selected.notes && <p><span className="text-gray-500">Notes:</span> {selected.notes}</p>}
+                <p><span className="text-gray-500">Payment:</span> {selected.payment_method} ({selected.payment_status})</p>
               </div>
 
               <div>
                 <p className="font-semibold text-gray-700 mb-3">Items</p>
-                {selected.orderItems?.map((item, i) => (
-                  <div key={i} className="flex justify-between py-2 border-b border-gray-100">
-                    <span>{item.product?.name} × {item.quantity}</span>
-                    <span className="font-semibold">KSh {(item.price * item.quantity).toLocaleString()}</span>
+                {selected.items?.map((item) => (
+                  <div key={item.id} className="flex justify-between py-2 border-b border-gray-100">
+                    <span>
+                      {item.product_name} × {item.quantity}
+                      {item.size ? ` (${item.size})` : ''}
+                    </span>
+                    <span className="font-semibold">KSh {Number(item.total_price).toLocaleString()}</span>
                   </div>
                 ))}
+                <div className="flex justify-between py-2 text-gray-500">
+                  <span>Delivery fee</span>
+                  <span>KSh {Number(selected.delivery_fee || 0).toLocaleString()}</span>
+                </div>
                 <div className="flex justify-between pt-3 font-bold text-gray-900">
                   <span>Total</span>
-                  <span>KSh {selected.totalAmount?.toLocaleString()}</span>
+                  <span>KSh {Number(selected.total_amount || 0).toLocaleString()}</span>
                 </div>
               </div>
             </div>

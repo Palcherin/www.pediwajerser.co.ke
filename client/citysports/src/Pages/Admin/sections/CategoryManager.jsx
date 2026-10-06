@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { IconPlus, IconEdit, IconTrash, IconCategory } from '@tabler/icons-react';
-
-const API_BASE = 'http://localhost:5000/api';
+import { apiFetch } from '../../../Pages/api';
 
 const CategoryManager = () => {
   const [categories, setCategories] = useState([]);
@@ -18,20 +17,17 @@ const CategoryManager = () => {
 
   const fetchCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/categories`, {
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const res = await apiFetch('/api/categories');
       const data = await res.json();
+      if (!res.ok) throw new Error(data.message || 'Failed to load categories');
       setCategories(data.data || []);
     } catch (err) {
-      console.error(err);
-      setError('Failed to load categories');
+      setError(err.message);
     }
   };
 
-  const generateSlug = (name) => {
-    return name.toLowerCase().trim().replace(/\s+/g, '-');
-  };
+  const generateSlug = (name) =>
+    name.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -46,18 +42,12 @@ const CategoryManager = () => {
     };
 
     try {
-      const url = editing 
-        ? `${API_BASE}/categories/${editing}` 
-        : `${API_BASE}/categories`;
-      
+      const url = editing ? `/api/categories/${editing}` : '/api/categories';
       const method = editing ? 'PUT' : 'POST';
 
-      const res = await fetch(url, {
+      const res = await apiFetch(url, {
         method,
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
       });
 
@@ -74,7 +64,7 @@ const CategoryManager = () => {
       setEditing(null);
       fetchCategories();
     } catch (err) {
-      setError('Network error. Please make sure server is running.');
+      setError(err.message || 'Network error. Please make sure server is running.');
     } finally {
       setLoading(false);
     }
@@ -88,17 +78,17 @@ const CategoryManager = () => {
     });
     setEditing(category.id);
     setError('');
+    setSuccess('');
     setShowForm(true);
   };
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this category?')) return;
-    
+    if (!window.confirm('Delete this category?')) return;
+
+    setError('');
+    setSuccess('');
     try {
-      const res = await fetch(`${API_BASE}/categories/${id}`, {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const res = await apiFetch(`/api/categories/${id}`, { method: 'DELETE' });
       const data = await res.json();
 
       if (!res.ok) {
@@ -109,7 +99,7 @@ const CategoryManager = () => {
       setSuccess('Category deleted');
       fetchCategories();
     } catch (err) {
-      setError('Failed to delete category');
+      setError(err.message || 'Failed to delete category');
     }
   };
 
