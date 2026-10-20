@@ -40,7 +40,7 @@ const DELIVERY_ZONES = {
     areas: ['Thika CBD', 'Makongeni', 'Ngoigwa'],
   },
 };
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 
 // Delivery fee for a zone depending on the payment method
 const feeFor = (zoneData, payment) => {

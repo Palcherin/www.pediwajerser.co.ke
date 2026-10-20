@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 
-const API = `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/cart`;
+const API = 'https://api.pediwajersey.co.ke';
 const LOCAL_KEY = 'cart';
 
 // ⚠️ Change 'token' to whatever key your login flow stores the JWT under

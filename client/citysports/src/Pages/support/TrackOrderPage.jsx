@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { API_URL, Card, Page, StillNeedHelp, formatKES, inputClass } from './SupportsShared';
+import {  Card, Page, StillNeedHelp, formatKES, inputClass } from './SupportsShared';
 
 const STEPS = [
   { key: 'pending', label: 'Order received', hint: 'We have your order and will confirm it shortly.' },
@@ -14,6 +14,7 @@ const PAYMENT_LABEL = {
   pending: 'Awaiting payment',
   failed: 'Payment failed',
 };
+const API = 'https://api.pediwajersey.co.ke'; // Replace with your actual API base URL
 
 const formatDate = (v) =>
   v
@@ -40,7 +41,7 @@ const TrackOrderPage = () => {
     setOrder(null);
 
     try {
-      const res = await fetch(`${API_URL}/api/orders/track`, {
+      const res = await fetch(`${API}/api/orders/track`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ orderNumber: orderNumber.trim(), phone: phone.trim() }),

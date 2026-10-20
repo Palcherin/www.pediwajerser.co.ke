@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IconPackage, IconAlertTriangle, IconPlus, IconMinus } from '@tabler/icons-react';
 
-const API_BASE = 'http://localhost:5000/api';
+const API = 'https://api.pediwajersey.co.ke';
 
 const InventoryManager = () => {
   const [products, setProducts] = useState([]);
@@ -15,7 +15,7 @@ const InventoryManager = () => {
 
   const fetchInventory = async () => {
     try {
-      const res = await fetch(`${API_BASE}/products`, {
+      const res = await fetch(`${API}/products`, {
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       const data = await res.json();

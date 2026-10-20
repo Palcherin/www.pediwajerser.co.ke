@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext'; // ADJUST path
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 const FALLBACK_IMAGE = 'https://placehold.co/1200x800?text=City+Sports';
 
 const formatDate = (value) =>
@@ -11,8 +11,8 @@ const formatDate = (value) =>
     : '';
 
 const BlogPostPage = () => {
- const params = useParams();
-const idOrSlug = params.idOrSlug ?? params.id ?? params.slug;
+  const params = useParams();
+  const idOrSlug = params.idOrSlug ?? params.id ?? params.slug;
   const auth = useAuth();
   const token = auth?.token || localStorage.getItem('token'); // same as BlogManager
   const isLoggedIn = !!token;
@@ -32,13 +32,23 @@ const idOrSlug = params.idOrSlug ?? params.id ?? params.slug;
 
   const api = useCallback(
     async (path, options = {}) => {
-      const res = await fetch(`${API_URL}/api/blogs${path}`, {
-        ...options,
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
+      const send = (withToken) =>
+        fetch(`${API}/api/blogs${path}`, {
+          ...options,
+          headers: {
+            'Content-Type': 'application/json',
+            ...(withToken && token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+
+      let res = await send(true);
+
+      // A stale/expired token must not break public reading: retry GETs anonymously
+      const isRead = !options.method || options.method === 'GET';
+      if (res.status === 401 && token && isRead) {
+        res = await send(false);
+      }
+
       const json = await res.json().catch(() => ({}));
       if (!res.ok || json.success === false) {
         throw new Error(json.message || `Request failed (${res.status})`);

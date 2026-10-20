@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const API   = 'http://localhost:5000/api';
+const API = 'https://api.pediwajersey.co.ke'; // Replace with your actual API base URL
 const token = () => localStorage.getItem('token');
 
 const DashboardHome = () => {

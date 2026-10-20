@@ -5,8 +5,7 @@ import Retro from '../../assets/RETRO3.jpeg';
 import Gloves from '../../assets/gloves.jpeg';
 import Training from '../../assets/training.jpeg';
 import footware1 from '../../assets/footware1.jpeg';
-
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 
 // Uploaded images live on the API server; bundled asset imports are already URLs
 const imgUrl = (p) => (p && p.startsWith('/uploads') ? `${API}${p}` : p);

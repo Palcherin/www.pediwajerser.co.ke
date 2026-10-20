@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 const PAGE_SIZE = 9;
 
 const categoryColors = {
@@ -57,7 +57,7 @@ const BlogPage = () => {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`${API_URL}/api/blogs`, { signal });
+      const response = await fetch(`${API}/api/blogs`, { signal });
       const json = await response.json();
       if (!response.ok || !json.success) {
         throw new Error(json.message || 'Failed to load blog posts');
@@ -78,7 +78,9 @@ const BlogPage = () => {
   }, [fetchPosts]);
 
   // Reset pagination when filters change
-  useEffect(() => setVisible(PAGE_SIZE), [activeCategory, search]);
+  useEffect(() => {
+    setVisible(PAGE_SIZE);
+  }, [activeCategory, search]);
 
   const categories = useMemo(() => ['All', ...new Set(posts.map((p) => p.category))], [posts]);
 

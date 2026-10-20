@@ -9,7 +9,7 @@ export const SUPPORT = {
   hours: 'Mon to Sat, 9am to 6pm (EAT)',
 };
 
-export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 
 export const formatKES = (n) => `KES ${Number(n || 0).toLocaleString('en-KE')}`;
 

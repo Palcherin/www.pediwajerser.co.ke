@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import ProductCard from '../../Components/products/ProductCard';
 
-const API = 'http://localhost:5000/api';
-
+const API = 'https://api.pediwajersey.co.ke';
 const getImageUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  return `http://localhost:5000${path}`;
+  return `${API}${path}`;
 };
 
 const NewSeason = () => {

@@ -3,10 +3,12 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 import { FaTrash, FaPlus, FaMinus, FaShoppingBag } from 'react-icons/fa';
 
+const API = 'https://api.pediwajersey.co.ke';
+
 const getImageUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  return `http://localhost:5000${path}`;
+  return `${API}${path}`;
 };
 
 const CartPage = () => {

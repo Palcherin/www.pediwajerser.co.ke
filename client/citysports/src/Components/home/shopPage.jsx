@@ -5,11 +5,11 @@ const ShopPage = () => {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-
+const API = 'https://api.pediwajersey.co.ke';
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        const res = await fetch('http://localhost:5000/api/products');
+        const res = await fetch(`${API}/products`);
         const data = await res.json();
         setProducts(data.data || []);
       } catch (err) {

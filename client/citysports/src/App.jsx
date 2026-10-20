@@ -1,6 +1,6 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import useCustomerTracker from './hooks/useCustomerTracker';
-import Footer from './Components/layout/Footer';
+import Footer from './Components/layout/Footer.jsx';
 import { CartProvider } from './context/CartContext';
 import { AuthProvider } from './context/AuthContext';
 import ProtectedRoute from './Pages/auth/ProtectedRoutes.jsx';

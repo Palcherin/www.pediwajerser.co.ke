@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { IconUsers, IconSearch, IconEye, IconBan, IconUserCheck } from '@tabler/icons-react';
 
-const PROD_API = 'https://api.pediwajerser.co.ke';
-const LOCAL_API = 'http://localhost:5000';
-
-// Picks the API from the address the site is opened on, so one build works everywhere
-const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API = import.meta.env.VITE_API_URL || (isLocal ? LOCAL_API : PROD_API);
+const API = 'https://api.pediwajersey.co.ke'; // Replace with your actual API base URL
 
 const CustomerManager = () => {
   const [customers, setCustomers] = useState([]);

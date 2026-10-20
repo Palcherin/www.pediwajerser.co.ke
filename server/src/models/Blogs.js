@@ -84,14 +84,21 @@ const Blog = sequelize.define(
       { fields: ['published', 'featured', 'published_at'] },
     ],
     hooks: {
-      beforeValidate: async (blog) => {
-        // Unique slug (generated once, so existing links never break)
+      beforeValidate: async (blog, options) => {
+        // Unique slug (generated once, so existing links never break).
+        // The lookup runs inside the caller's transaction (if any) so it sees the same data.
         if (!blog.slug && blog.title) {
           const base = slugify(blog.title) || 'post';
           let candidate = base;
           let counter = 1;
           // eslint-disable-next-line no-await-in-loop
-          while (await Blog.findOne({ where: { slug: candidate }, attributes: ['id'] })) {
+          while (
+            await Blog.findOne({
+              where: { slug: candidate },
+              attributes: ['id'],
+              transaction: options?.transaction,
+            })
+          ) {
             counter += 1;
             candidate = `${base}-${counter}`;
           }
@@ -102,6 +109,11 @@ const Blog = sequelize.define(
         if (blog.changed('content') && blog.content) {
           const words = blog.content.trim().split(/\s+/).length;
           blog.readTime = Math.max(1, Math.ceil(words / 200));
+        }
+
+        // A draft can never be the featured post
+        if (!blog.published) {
+          blog.featured = false;
         }
 
         // Stamp the publish date the first time a post goes live

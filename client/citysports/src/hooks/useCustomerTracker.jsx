@@ -1,8 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
-
-const API = 'http://localhost:5000/api';
+const API = 'https://api.pediwajersey.co.ke'; // Replace with your actual API base URL
 
 export const getSessionId = () => {
   let id = localStorage.getItem('pwj_session');
@@ -20,7 +19,7 @@ const useCustomerTracker = () => {
   useEffect(() => {
     const trackVisit = async () => {
       try {
-        await fetch(`${API}/customers/track`, {
+        await fetch(`${API}/api/customers/track`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

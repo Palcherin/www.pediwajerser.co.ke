@@ -1,10 +1,3 @@
-/**
- * Express Application Configuration
- * 
- * Configures the Express app with middleware, routes, and error handling.
- * 
- * @module app
- */
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -12,11 +5,10 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
+const path = require('path');
 
-// Import Swagger
 const setupSwagger = require('./config/swagger');
 
-// Import routes
 const authRoutes = require('./routes/authRoutes');
 const userRoutes = require('./routes/userRoutes');
 const productRoutes = require('./routes/productRoutes');
@@ -25,123 +17,72 @@ const orderRoutes = require('./routes/orderRoutes');
 const blogRoutes = require('./routes/blogRoute');
 const reviewRoutes = require('./routes/reviewRoutes');
 const customerRoutes = require('./routes/customerRoutes');
+const categoryRoutes = require('./routes/categoriesRoutes');
+const heroSlideRoutes = require('./routes/heroSlideRoutes');
+const analyticsRoutes = require('./routes/analyticsRoutes');
 const { router: uploadRoutes } = require('./routes/uploadRoutes');
-  const categoryRoutes = require('./routes/categoriesRoutes');
-  const heroSlideRoutes = require('./routes/heroSlideRoutes');
-  
-const path = require('path');
-// Import middleware
+
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/logger');
 
-// Initialize Express app
 const app = express();
 
-/**
- * Rate limiting configuration
- * Prevents brute force attacks and API abuse
- */
+// If behind a proxy (Render, Railway, nginx, etc.), required for rate limiting by real IP
+app.set('trust proxy', 1);
+
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: {
-        error: 'Too many requests from this IP, please try again later.',
-        retryAfter: '15 minutes'
-    },
-    standardHeaders: true,
-    legacyHeaders: false
+  windowMs: 15 * 60 * 1000,
+  max: 1000,
+  message: { error: 'Too many requests, please try again later.' },
+  standardHeaders: true,
+  legacyHeaders: false,
 });
 
-
-/**
- * CORS Configuration
- * Allows cross-origin requests from specified origins
- */
 const allowedOrigins = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'https://www.pediwajerser.co.ke',
-    'https://pediwajerser.co.ke',
-    'http://www.pediwajerser.co.ke',
-    ...(process.env.CORS_ORIGIN ? process.env.CORS_ORIGIN.split(',').map(s => s.trim()) : []),
+  'https://www.pediwajersey.co.ke',
+  'https://pediwajersey.co.ke',
+  'http://localhost:5173',
+  ...(process.env.CORS_ORIGINS || '').split(',').map(o => o.trim().replace(/\/$/, '')).filter(Boolean),
 ];
 
 const corsOptions = {
-    origin: (origin, callback) => {
-        // allow tools like Thunder Client / curl (no Origin header) and listed origins
-        if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
-        return callback(new Error(`CORS blocked for origin: ${origin}`));
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-    credentials: true,
-    optionsSuccessStatus: 200,
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    console.warn('CORS rejected:', origin, '| allowed:', allowedOrigins);
+    return callback(null, false); // don't throw, so it never becomes a 500
+  },
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
+  optionsSuccessStatus: 204,
 };
 
-// Apply middleware
-app.use(helmet()); // Security headers
-app.use(compression()); // Response compression
-app.use(cors(corsOptions)); // Cross-origin resource sharing
-app.use(express.json({ limit: '10mb' })); // JSON body parser
-app.use(express.urlencoded({ extended: true, limit: '10mb' })); // URL-encoded body parser
-app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } })); // Security headers
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // use '/*splat' if on Express 5
 
-  app.use('/api/categories', categoryRoutes);
-  app.use('/api/hero-slides', heroSlideRoutes);
-   app.use('/uploads', express.static(path.join(__dirname, 'public/uploads'))); // File upload routes
-app.use('/api/blogs', blogRoutes); // Blog routes
+app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+app.use(compression());
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Logging middleware
 if (process.env.NODE_ENV !== 'test') {
-    app.use(morgan('combined')); // HTTP request logging
-    app.use(requestLogger); // Custom request logger
+  app.use(morgan('combined'));
+  app.use(requestLogger);
 }
 
-// Apply rate limiting to all routes
+app.use('/uploads', express.static(path.join(__dirname, 'public/uploads')));
 app.use('/api', limiter);
 
-/**
- * Welcome Route
- * Root endpoint with API information
- */
 app.get('/', (req, res) => {
-    res.json({
-        name: 'Jersey Store API',
-        version: '1.0.0',
-        description: 'E-commerce backend for jersey store',
-        endpoints: {
-            health: '/health',
-            api: '/api',
-            documentation: '/api-docs',
-            swaggerJson: '/api-docs.json'
-        },
-        status: 'running',
-        environment: process.env.NODE_ENV
-    });
+  res.json({ name: 'Jersey Store API', version: '1.0.0', status: 'running' });
 });
 
-/**
- * Health Check Endpoint
- * Used for monitoring and load balancer health checks
- */
 app.get('/health', (req, res) => {
-    res.status(200).json({
-        status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
-        memory: process.memoryUsage(),
-        environment: process.env.NODE_ENV
-    });
+  res.status(200).json({ status: 'healthy', uptime: process.uptime() });
 });
 
-// Setup Swagger Documentation
 const swaggerSpec = setupSwagger(app);
-console.log('📚 Swagger documentation available at /api-docs');
 
-/**
- * API Routes
- * Grouped by resource with proper versioning
- */
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
 app.use('/api/products', productRoutes);
@@ -150,13 +91,12 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/customers', customerRoutes);
 app.use('/api/categories', categoryRoutes);
-app.get('/api/swagger', (req, res) => res.json(swaggerSpec)); // Swagger JSON endpoint
-app.use('/api/blogs', blogRoutes); // Blog routes
+app.use('/api/hero-slides', heroSlideRoutes);
+app.use('/api/blogs', blogRoutes);
+app.use('/api/analytics', analyticsRoutes);
+app.get('/api/swagger', (req, res) => res.json(swaggerSpec));
 
-// 404 handler
 app.use(notFoundHandler);
-
-// Error handler middleware (must be last)
 app.use(errorHandler);
 
 module.exports = app;

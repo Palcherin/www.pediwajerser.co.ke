@@ -3,8 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { FaWhatsapp, FaShoppingCart, FaArrowLeft } from 'react-icons/fa';
 import { useCart } from '../../context/CartContext';
 
-const API = 'http://localhost:5000/api';
-
+const API = 'https://api.pediwajersey.co.ke';
 const PRINTING_OPTIONS = [
   { value: 'none',        label: 'No Printing',    price: 0   },
   { value: 'name',        label: 'Name Only',       price: 200 },
@@ -15,7 +14,7 @@ const PRINTING_OPTIONS = [
 const getImageUrl = (path) => {
   if (!path) return '/placeholder.jpg';
   if (path.startsWith('http')) return path;
-  return `http://localhost:5000${path}`;
+  return `${API}${path}`;
 };
 
 const ProductDetail = () => {

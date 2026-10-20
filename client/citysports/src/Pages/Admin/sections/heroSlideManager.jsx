@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { apiFetch } from '../../../Pages/api'; // adjust the path to where api.js lives relative to this file
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 const imgUrl = (p) => (p && p.startsWith('/uploads') ? `${API}${p}` : p);
 
 const EMPTY = {

@@ -6,7 +6,9 @@ import { useCart } from '../../context/CartContext';
 import useCustomerTracker from '../../hooks/useCustomerTracker';
 import logo from '../../assets/final5-removebg-preview.png';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+
+const API = 'https://api.pediwajersey.co.ke';
+
 
 // Shown immediately and kept as a fallback if the categories fetch fails,
 // so the navbar is never empty or broken for a visitor.

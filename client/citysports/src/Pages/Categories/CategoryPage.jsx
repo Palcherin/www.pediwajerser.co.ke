@@ -8,12 +8,7 @@ const image2 = new URL('../../assets/WhatsApp Image 2026-06-16at 15.57.12.jpeg',
 const image3 = new URL('../../assets/AC INTER.jpeg', import.meta.url).href;
 const image4 = new URL('../../assets/FOOTWARE.jpeg', import.meta.url).href;
 
-const PROD_API = 'https://api.pediwajerser.co.ke';
-const LOCAL_API = 'http://localhost:5000';
-
-// Picks the API from the address the site is opened on, so one build works everywhere
-const isLocal = ['localhost', '127.0.0.1'].includes(window.location.hostname);
-const API = import.meta.env.VITE_API_URL || (isLocal ? LOCAL_API : PROD_API);
+const API = 'https://api.pediwajersey.co.ke';
 
 const getImageUrl = (path) => {
   if (!path) return null;
@@ -86,7 +81,7 @@ const CategoryPage = () => {
       try {
         setLoading(true);
         setError(null);
-        const res  = await fetch(`${API}/products?category=${slug}`);
+        const res  = await fetch(`${API}/api/products?category=${slug}`);
         if (!res.ok) throw new Error('Failed to fetch products');
         const data = await res.json();
 

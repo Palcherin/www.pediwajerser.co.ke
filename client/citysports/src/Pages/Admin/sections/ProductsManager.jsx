@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 
-const API = 'http://localhost:5000/api';
-const imgUrl = (p) => (p.startsWith('http') ? p : `http://localhost:5000${p}`);
+const API = 'https://api.pediwajersey.co.ke/api';
+const imgUrl = (p) => (p.startsWith('http') ? p : `${API}${p}`);
 const token = () => localStorage.getItem('token');
 
 const DEFAULT_CATEGORIES = [
@@ -208,7 +208,7 @@ const ProductsManager = () => {
   // ── Fetch ────────────────────────────────────────────────────────
   const fetchProducts = async () => {
     try {
-      const res  = await authFetch(`${API}/products`);
+      const res  = await authFetch(`${API}/api/products`);
       const data = await res.json();
       setProducts(data.data || []);
     } catch (err) { console.error(err); }
@@ -216,7 +216,7 @@ const ProductsManager = () => {
 
   const fetchCategories = async () => {
     try {
-      const res    = await authFetch(`${API}/categories`);
+      const res    = await authFetch(`${API}/api/categories`);
       const data   = await res.json();
       const fetched = data.data || [];
       if (fetched.length > 0) {
@@ -235,7 +235,7 @@ const ProductsManager = () => {
     try {
       await Promise.all(
         DEFAULT_CATEGORIES.map(cat =>
-          authFetch(`${API}/categories`, {
+          authFetch(`${API}/api/categories`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ name: cat.name, description: cat.description, image: cat.image }),
@@ -243,7 +243,7 @@ const ProductsManager = () => {
         )
       );
 
-      const res  = await authFetch(`${API}/categories`);
+      const res  = await authFetch(`${API}/api/categories`);
       const data = await res.json();
       setCategories(data.data?.length > 0 ? data.data : DEFAULT_CATEGORIES);
     } catch (err) {
@@ -325,7 +325,7 @@ const ProductsManager = () => {
 
     imageFiles.forEach(file => fd.append('images', file));
 
-    const url    = editingProduct ? `${API}/products/${editingProduct}` : `${API}/products`;
+    const url    = editingProduct ? `${API}/api/products/${editingProduct}` : `${API}/api/products`;
     const method = editingProduct ? 'PUT' : 'POST';
 
     try {
@@ -378,7 +378,7 @@ const ProductsManager = () => {
 
   const handleDeleteProduct = async (id) => {
     if (!confirm('Delete this product?')) return;
-    await authFetch(`${API}/products/${id}`, { method: 'DELETE' });
+    await authFetch(`${API}/api/products/${id}`, { method: 'DELETE' });
     fetchProducts();
   };
 
@@ -388,7 +388,7 @@ const ProductsManager = () => {
     setCategoryError('');
     setCategoryLoading(true);
 
-    const url    = editingCategory ? `${API}/categories/${editingCategory}` : `${API}/categories`;
+    const url    = editingCategory ? `${API}/api/categories/${editingCategory}` : `${API}/api/categories`;
     const method = editingCategory ? 'PUT' : 'POST';
 
     try {
@@ -418,7 +418,7 @@ const ProductsManager = () => {
 
   const handleDeleteCategory = async (id) => {
     if (!confirm('Delete this category? Products in this category may be affected.')) return;
-    const res  = await authFetch(`${API}/categories/${id}`, { method: 'DELETE' });
+    const res  = await authFetch(`${API}/api/categories/${id}`, { method: 'DELETE' });
     const data = await res.json();
     if (!res.ok) { alert(data.message); return; }
     fetchCategories();

@@ -1,7 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../../context/AuthContext';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
+const API = 'https://api.pediwajersey.co.ke';
 
 const EMPTY_FORM = {
   title: '',
@@ -53,7 +52,7 @@ const BlogManager = () => {
 
   const request = useCallback(
     async (path, options = {}) => {
-      const response = await fetch(`${API_URL}/api/blogs${path}`, {
+      const response = await fetch(`${API}/api/blogs${path}`, {
         ...options,
         headers: {
           'Content-Type': 'application/json',
@@ -182,7 +181,8 @@ const BlogManager = () => {
       content: form.content,
       image: form.image.trim(),
       category: form.category.trim(),
-      featured: form.featured,
+      // A draft can't be featured (the server enforces this too)
+      featured: form.featured && form.published,
       published: form.published,
     };
     if (form.author.trim()) payload.author = form.author.trim();
@@ -210,10 +210,14 @@ const BlogManager = () => {
     setBusyId(post.id);
     try {
       await request(`/${post.id}`, { method: 'PUT', body: JSON.stringify(changes) });
+
+      // Unpublishing also clears `featured` on the server, so mirror that locally
+      const applied = changes.published === false ? { ...changes, featured: false } : changes;
+
       setPosts((prev) =>
         prev.map((p) => {
-          if (p.id === post.id) return { ...p, ...changes };
-          if (changes.featured) return { ...p, featured: false }; // only one featured post
+          if (p.id === post.id) return { ...p, ...applied };
+          if (applied.featured) return { ...p, featured: false }; // only one featured post
           return p;
         })
       );
@@ -371,9 +375,15 @@ const BlogManager = () => {
                       </td>
                       <td className="px-4 py-4">
                         <button
-                          disabled={busyId === post.id || post.featured}
+                          disabled={busyId === post.id || post.featured || !post.published}
                           onClick={() => quickUpdate(post, { featured: true })}
-                          title={post.featured ? 'Currently featured' : 'Make featured'}
+                          title={
+                            !post.published
+                              ? 'Publish the post to feature it'
+                              : post.featured
+                              ? 'Currently featured'
+                              : 'Make featured'
+                          }
                           className={`text-xl leading-none transition-colors disabled:cursor-default ${
                             post.featured ? 'text-amber-400' : 'text-gray-300 hover:text-amber-400'
                           }`}
@@ -547,11 +557,16 @@ const BlogManager = () => {
                     />
                     Published
                   </label>
-                  <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+                  <label
+                    className={`flex items-center gap-2 text-sm ${
+                      form.published ? 'text-gray-700 cursor-pointer' : 'text-gray-400'
+                    }`}
+                  >
                     <input
                       type="checkbox"
-                      checked={form.featured}
+                      checked={form.featured && form.published}
                       onChange={setField('featured')}
+                      disabled={!form.published}
                       className="h-4 w-4 accent-emerald-600"
                     />
                     Featured (replaces the current featured post)

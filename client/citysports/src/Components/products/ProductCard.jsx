@@ -4,11 +4,13 @@ import { FaWhatsapp, FaShoppingCart, FaCheck } from 'react-icons/fa';
 import { Link, useNavigate } from 'react-router-dom';
 import { useCart } from '../../context/CartContext';
 
+const API = 'https://api.pediwajersey.co.ke';
+
 // ✅ Resolves relative /uploads/... paths to full server URL
 const getImageUrl = (path) => {
   if (!path) return null;
   if (path.startsWith('http')) return path;
-  return `http://localhost:5000${path}`;
+  return `${API}${path}`;
 };
 
 const ProductCard = ({ product }) => {

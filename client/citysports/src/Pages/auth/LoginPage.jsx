@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 
+const API = 'https://api.pediwajersey.co.ke';
+
 const LoginPage = () => {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -10,46 +12,46 @@ const LoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  setError('');
-  setLoading(true);
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
 
-  try {
-    const response = await fetch(`${API_URL}/api/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: form.email.trim(),
-        password: form.password,
-      }),
-    });
+    try {
+      const response = await fetch(`${API}/api/auth/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: form.email.trim(),
+          password: form.password,
+        }),
+      });
 
-    const data = await response.json();
+      const data = await response.json();
 
-    if (!response.ok) {
-      setError(data.message || 'Invalid email or password');
-      return;
+      if (!response.ok) {
+        setError(data.message || 'Invalid email or password');
+        return;
+      }
+
+      const user = data.user ?? data.data?.user;
+      const token = data.token ?? data.data?.token;
+
+      if (!(data.success && user && token)) {
+        setError('Invalid response from server');
+        return;
+      }
+
+      login(user, token);
+      const role = String(user.role || '').toLowerCase();
+      navigate(role === 'admin' ? '/admin' : '/');
+    } catch (err) {
+      console.error('Login error:', err);
+      setError('Cannot connect to server. Please try again.');
+    } finally {
+      setLoading(false);
     }
-
-    const user = data.user ?? data.data?.user;
-    const token = data.token ?? data.data?.token;
-
-    if (!(data.success && user && token)) {
-      setError('Invalid response from server');
-      return;
-    }
-
-    login(user, token);
-    const role = String(user.role || '').toLowerCase();
-    navigate(role === 'admin' ? '/admin' : '/');
-  } catch (err) {
-    setError('Cannot connect to server. Please try again.');
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
