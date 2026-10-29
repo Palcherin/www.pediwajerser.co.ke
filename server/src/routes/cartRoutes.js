@@ -25,10 +25,7 @@ const addToCartValidation = [
 ];
 
 const updateCartValidation = [
-    body('product_id').isInt({ min: 1 }).withMessage('Product ID must be a positive integer'),
-    body('quantity').isInt({ min: 0 }).withMessage('Quantity must be 0 or positive'),
-    body('size').optional().isString().trim(),
-    body('color').optional().isString().trim()
+    body('quantity').isInt({ min: 0 }).withMessage('Quantity must be 0 or positive')
 ];
 
 /**
@@ -234,6 +231,7 @@ router.put('/update', authenticate, updateCartValidation, updateCartItem);
  *         description: Cart item not found
  */
 router.delete('/remove', authenticate, removeFromCart);
+
 
 /**
  * @swagger

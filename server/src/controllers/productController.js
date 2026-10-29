@@ -15,6 +15,7 @@ const { uploadMany, deleteMany } = require('../utils/cloudinaryUpload');
 // Multipart form values arrive as strings, so convert them
 const toNum = (v) => (v === undefined || v === null || v === '' ? null : Number(v));
 const toBool = (v, fallback) => (v === undefined ? fallback : v === true || v === 'true');
+
 const parseSizes = (v) => {
     if (v === undefined) return undefined;
     if (Array.isArray(v)) return v;

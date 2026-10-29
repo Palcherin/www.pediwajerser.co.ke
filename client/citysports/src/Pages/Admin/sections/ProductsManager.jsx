@@ -1,18 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-const API = 'https://api.pediwajersey.co.ke/api';
+const API = 'https://api.pediwajersey.co.ke';
 const imgUrl = (p) => (p.startsWith('http') ? p : `${API}${p}`);
 const token = () => localStorage.getItem('token');
-
-const DEFAULT_CATEGORIES = [
-  { slug: 'retro-kits',   name: 'Retro Kits',   description: 'Classic football jerseys from the golden eras',    image: 'https://images.unsplash.com/photo-1508098682722-e99c43a406b2?w=400&q=80' },
-  { slug: 'new-season',   name: 'New Season',   description: 'Latest kits and gear for the 2025/26 season',      image: 'https://images.unsplash.com/photo-1579952363873-27f3bade9f55?w=400&q=80' },
-  { slug: 'national-teams', name: 'National Teams', description: 'Official kits and gear for your favorite national squads.', image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
-  { slug: 'footwear',     name: 'Footwear',     description: 'Premium boots and trainers for every pitch',        image: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80' },
-  { slug: 'backpacks',    name: 'Backpacks',    description: 'Durable training and matchday bags',                image: 'https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80' },
-  { slug: 'special-kits', name: 'Special Kits', description: 'Limited edition and special release kits',          image: 'https://images.unsplash.com/photo-1517466787929-bc90951d0974?w=400&q=80' },
-  { slug: 'others',       name: 'Others',       description: 'Other sports equipment and accessories',            image: 'https://images.unsplash.com/photo-1526976668912-3f65a7c6c8f3?w=400&q=80' },
-];
 
 /* ── Size systems ─────────────────────────────────────────────────
    One config drives the picker, the defaults, and the table display.
@@ -201,9 +191,16 @@ const ProductsManager = () => {
   const [showCategoryForm, setShowCategoryForm]   = useState(false);
   const [categoryLoading, setCategoryLoading]     = useState(false);
   const [categoryError, setCategoryError]         = useState('');
-  const [seeding, setSeeding]                     = useState(false);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError]     = useState('');
 
   useEffect(() => { fetchProducts(); fetchCategories(); }, []);
+
+  // A product's category name comes from the database. If the category was deleted,
+  // fall back to a tidied-up slug so the row still reads sensibly.
+  const categoryName = (slug) =>
+    categories.find((c) => c.slug === slug)?.name
+    ?? (slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase()) : '—');
 
   // ── Fetch ────────────────────────────────────────────────────────
   const fetchProducts = async () => {
@@ -214,43 +211,21 @@ const ProductsManager = () => {
     } catch (err) { console.error(err); }
   };
 
+  // Categories come only from the database. If the request fails we keep whatever was already
+  // loaded and show an error with a Retry button, instead of inventing categories that do not exist.
   const fetchCategories = async () => {
+    setCategoriesLoading(true);
+    setCategoriesError('');
     try {
-      const res    = await authFetch(`${API}/api/categories`);
-      const data   = await res.json();
-      const fetched = data.data || [];
-      if (fetched.length > 0) {
-        setCategories(fetched);
-      } else {
-        await seedDefaultCategories();
-      }
-    } catch (err) {
-      console.error(err);
-      setCategories(DEFAULT_CATEGORIES);
-    }
-  };
-
-  const seedDefaultCategories = async () => {
-    setSeeding(true);
-    try {
-      await Promise.all(
-        DEFAULT_CATEGORIES.map(cat =>
-          authFetch(`${API}/api/categories`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: cat.name, description: cat.description, image: cat.image }),
-          }).then(r => r.json())
-        )
-      );
-
       const res  = await authFetch(`${API}/api/categories`);
       const data = await res.json();
-      setCategories(data.data?.length > 0 ? data.data : DEFAULT_CATEGORIES);
+      if (!res.ok) throw new Error(data.message || 'Failed to load categories');
+      setCategories(Array.isArray(data.data) ? data.data : []);
     } catch (err) {
       console.error(err);
-      setCategories(DEFAULT_CATEGORIES);
+      setCategoriesError(err.message || 'Could not reach the server');
     } finally {
-      setSeeding(false);
+      setCategoriesLoading(false);
     }
   };
 
@@ -522,9 +497,14 @@ const ProductsManager = () => {
 
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
-                      {seeding ? (
+                      {categoriesLoading && categories.length === 0 ? (
                         <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-3 rounded-2xl">
-                          Setting up default categories...
+                          Loading categories...
+                        </div>
+                      ) : categoriesError && categories.length === 0 ? (
+                        <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-2xl flex items-center justify-between gap-3">
+                          <span>Couldn't load categories: {categoriesError}</span>
+                          <button type="button" onClick={fetchCategories} className="font-semibold underline">Retry</button>
                         </div>
                       ) : categories.length === 0 ? (
                         <div className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-3 rounded-2xl">
@@ -535,6 +515,11 @@ const ProductsManager = () => {
                           onChange={e => changeCategory(e.target.value)}
                           className={inp}>
                           <option value="">Select category...</option>
+                          {productForm.categorySlug && !categories.some(cat => cat.slug === productForm.categorySlug) && (
+                            <option value={productForm.categorySlug}>
+                              {categoryName(productForm.categorySlug)} (no longer in the database)
+                            </option>
+                          )}
                           {categories.map(cat => (
                             <option key={cat.id || cat.slug} value={cat.slug}>{cat.name}</option>
                           ))}
@@ -650,7 +635,7 @@ const ProductsManager = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-gray-500 capitalize">{p.categorySlug?.replace(/-/g, ' ')}</td>
+                      <td className="px-6 py-4 text-gray-500">{categoryName(p.categorySlug)}</td>
                       <td className="px-6 py-4 font-semibold text-gray-900">KSh {p.price?.toLocaleString()}</td>
                       <td className="px-6 py-4 text-gray-600">{p.stockQuantity}</td>
                       <td className="px-6 py-4">
@@ -676,13 +661,10 @@ const ProductsManager = () => {
       {/* ── CATEGORIES TAB ────────────────────────────────────────── */}
       {activeTab === 'categories' && (
         <>
-          {seeding && (
-            <div className="bg-blue-50 border border-blue-200 text-blue-700 text-sm px-4 py-3 rounded-2xl mb-6 flex items-center gap-2">
-              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/>
-              </svg>
-              Setting up default categories...
+          {categoriesError && (
+            <div className="bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3 rounded-2xl mb-6 flex items-center justify-between gap-3">
+              <span>Couldn't load categories from the server: {categoriesError}</span>
+              <button type="button" onClick={fetchCategories} className="font-semibold underline">Retry</button>
             </div>
           )}
 
@@ -742,10 +724,18 @@ const ProductsManager = () => {
           )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {categories.length === 0 && !seeding ? (
+            {categories.length === 0 ? (
               <div className="col-span-3 text-center py-16 text-gray-400 bg-white rounded-3xl border border-gray-100">
-                <p className="text-lg font-medium">No categories yet</p>
-                <p className="text-sm mt-1">Click "Add Category" to create your first one</p>
+                {categoriesLoading ? (
+                  <p className="text-lg font-medium">Loading categories...</p>
+                ) : categoriesError ? (
+                  <p className="text-lg font-medium">Categories could not be loaded</p>
+                ) : (
+                  <>
+                    <p className="text-lg font-medium">No categories yet</p>
+                    <p className="text-sm mt-1">Click "Add Category" to create your first one</p>
+                  </>
+                )}
               </div>
             ) : (
               categories.map((cat, i) => (

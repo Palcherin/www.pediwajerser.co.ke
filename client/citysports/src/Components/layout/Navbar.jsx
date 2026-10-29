@@ -32,31 +32,42 @@ const Navbar = () => {
   const toggleMobileMenu = () => setIsMobileMenuOpen(!isMobileMenuOpen);
   const closeMobileMenu = () => setIsMobileMenuOpen(false);
 
-  // Pull live categories from the database instead of hardcoding the list.
-  // ⚠️ Adjust the endpoint/field names (`name`, `slug`) if your categories
-  // API shapes them differently (e.g. `title`, `id`, `is_active`).
+  // Pull live categories from GET /api/categories (categoriesControllers.getAllCategories).
+  // That endpoint answers { success: true, data: [{ id, name, slug, ... }] },
+  // sorted by name. Any failure (network error, non-200, bad body, timeout)
+  // leaves FALLBACK_CATEGORIES on screen.
   useEffect(() => {
-    let cancelled = false;
+    const controller = new AbortController();
+    // Give up after 8s so a hanging request cannot keep the fetch open forever.
+    const timer = setTimeout(() => controller.abort(), 8000);
 
     const loadCategories = async () => {
       try {
-        const res = await fetch(`${API}/api/categories`);
-        const data = await res.json();
-        const list = Array.isArray(data) ? data : data.categories;
-        if (!cancelled && Array.isArray(list) && list.length) {
-          setCategories(
-            list
-              .filter((c) => c.is_active !== false) // keep hidden categories out of the navbar
-              .map((c) => ({ name: c.name, slug: c.slug }))
-          );
-        }
-      } catch {
-        // Keep FALLBACK_CATEGORIES on failure — fail quiet, don't break the navbar.
+        const res = await fetch(`${API}/api/categories`, { signal: controller.signal });
+        if (!res.ok) throw new Error(`Categories request failed (${res.status})`);
+
+        const body = await res.json();
+        const list = Array.isArray(body?.data) ? body.data : [];
+
+        const fromDb = list
+          .filter((c) => c && c.name && c.slug) // skip rows that cannot make a working link
+          .map((c) => ({ name: c.name, slug: c.slug }));
+
+        // An empty result keeps the fallback so the navbar is never bare.
+        if (fromDb.length) setCategories(fromDb);
+      } catch (err) {
+        // Keep FALLBACK_CATEGORIES. An abort is our own timeout or unmount, not worth logging.
+        if (err.name !== 'AbortError') console.warn('Navbar: using fallback categories.', err);
+      } finally {
+        clearTimeout(timer);
       }
     };
 
     loadCategories();
-    return () => { cancelled = true; };
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
   }, []);
 
   // Connect Search to Backend
@@ -74,8 +85,8 @@ const Navbar = () => {
       <div className="max-w-7xl mx-auto px-4 py-4">
         <div className="flex justify-between items-center">
           {/* Logo */}
-          <Link 
-            to="/" 
+          <Link
+            to="/"
             className="text-2xl font-bold text-emerald-600 hover:text-emerald-700 transition-colors"
           >
             <img src={logo} alt="City Sports Logo" className="h-10 w-auto" />
@@ -118,8 +129,8 @@ const Navbar = () => {
             </button>
 
             {/* Cart Icon */}
-            <Link 
-              to="/cart" 
+            <Link
+              to="/cart"
               className="p-2 hover:bg-gray-100 rounded-full transition relative"
               aria-label="Shopping Cart"
             >
